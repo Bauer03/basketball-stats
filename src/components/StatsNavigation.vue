@@ -4,21 +4,21 @@
       <button 
         class="nav-link" 
         :class="{ active: activeView === 'teams' }"
-        @click="activeView = 'teams'"
+        @click="setActiveView('teams')"
       >
         <span class="text-subtitle-1">Teams</span>
       </button>
       <button 
         class="nav-link" 
         :class="{ active: activeView === 'games' }"
-        @click="activeView = 'games'"
+        @click="setActiveView('games')"
       >
         <span class="text-subtitle-1">Games</span>
       </button>
       <button 
         class="nav-link" 
         :class="{ active: activeView === 'players' }"
-        @click="activeView = 'players'"
+        @click="setActiveView('players')"
       >
         <span class="text-subtitle-1">Players</span>
       </button>
@@ -27,19 +27,37 @@
     <div class="content-container">
       <Teams v-if="activeView === 'teams'" />
       <Games v-if="activeView === 'games'" />
-      <div v-if="activeView === 'players'" class="coming-soon">
-        <h2>Players View Coming Soon</h2>
-      </div>
+      <PlayersView v-if="activeView === 'players'" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Teams from './Teams.vue'
 import Games from './Games.vue'
+import PlayersView from '@/views/PlayersView.vue'
 
+const router = useRouter()
 const activeView = ref('teams')
+
+const setActiveView = (view) => {
+  activeView.value = view
+  // Emit a custom event that will be caught by the parent component
+  window.dispatchEvent(new CustomEvent('stats-view-changed', { detail: view }))
+}
+
+// Initialize view based on route
+watch(() => router.currentRoute.value.path, (path) => {
+  if (path.includes('/teams')) {
+    setActiveView('teams')
+  } else if (path.includes('/games')) {
+    setActiveView('games')
+  } else if (path.includes('/players')) {
+    setActiveView('players')
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -86,15 +104,5 @@ const activeView = ref('teams')
 
 .content-container {
   min-height: calc(100vh - 200px);
-}
-
-.coming-soon {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-  color: #e9d5ff;
-  font-size: 1.5rem;
-  opacity: 0.7;
 }
 </style> 

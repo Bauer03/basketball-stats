@@ -22,12 +22,12 @@ export function useSearch() {
     }
   }
   
-  const searchTeams = async (query) => {
+  const searchTeams = async (query, conference = '') => {
     try {
       console.log('Searching teams with query:', query)
       const params = new URLSearchParams({
         'team-search': query || '',
-        'conference': '' // Optional conference filter
+        'conference': conference || '' // Add conference filter
       })
       
       const url = `${API_CONFIG.BASE_URL}/teams?${params}`
@@ -61,13 +61,13 @@ export function useSearch() {
     }
   }
   
-  const searchPlayers = async (query) => {
+  const searchPlayers = async (query, filters = {}) => {
     try {
       console.log('Searching players with query:', query)
       const params = new URLSearchParams({
-        'name-search': query || '',
-        'cursor': '',
-        'per_page': API_CONFIG.PAGINATION.PER_PAGE.toString()
+        'player-search': query || '',
+        'team_id': filters.team || '',
+        'position': filters.position || ''
       })
       
       const url = `${API_CONFIG.BASE_URL}/players?${params}`
@@ -86,11 +86,11 @@ export function useSearch() {
       const { data } = json || {}
       const mappedData = data?.map(player => ({
         id: player.id,
-        name: `${player.first_name} ${player.last_name}`,
+        first_name: player.first_name,
+        last_name: player.last_name,
         position: player.position,
-        team: player.team?.full_name || 'N/A',
-        jersey: player.jersey_number,
-        teamId: player.team?.id
+        team: player.team,
+        jersey_number: player.jersey_number
       })) || []
       
       console.log('Processed player results:', mappedData)
@@ -101,18 +101,15 @@ export function useSearch() {
     }
   }
   
-  const searchGames = async (query) => {
+  const searchGames = async (query, filters = {}) => {
     try {
       console.log('Searching games with query:', query)
-      const currentYear = new Date().getFullYear()
       const params = new URLSearchParams({
-        'start_date': `${currentYear}-01-01`,
-        'end_date': `${currentYear}-12-31`,
-        'cursor': '',
-        'per_page': API_CONFIG.PAGINATION.PER_PAGE.toString()
+        'game-search': query || '',
+        'start_date': filters.startDate || '',
+        'end_date': filters.endDate || '',
+        'team_ids': filters.teams?.join(',') || ''
       })
-      
-      params.append('seasons[]', currentYear.toString())
       
       const url = `${API_CONFIG.BASE_URL}/games?${params}`
       console.log('Making request to:', url)
@@ -130,14 +127,13 @@ export function useSearch() {
       const { data } = json || {}
       const mappedData = data?.map(game => ({
         id: game.id,
-        date: new Date(game.date).toLocaleDateString(),
+        date: game.date,
+        home_team: game.home_team,
+        visitor_team: game.visitor_team,
+        home_team_score: game.home_team_score,
+        visitor_team_score: game.visitor_team_score,
         status: game.status,
-        homeTeam: game.home_team?.full_name || game.home_team,
-        visitorTeam: game.visitor_team?.full_name || game.visitor_team,
-        homeTeamScore: game.home_team_score,
-        visitorTeamScore: game.visitor_team_score,
-        homeTeamId: game.home_team?.id,
-        visitorTeamId: game.visitor_team?.id
+        venue: game.venue
       })) || []
       
       console.log('Processed game results:', mappedData)
@@ -148,8 +144,8 @@ export function useSearch() {
     }
   }
   
-  const performSearch = async (query, type) => {
-    console.log('Performing search:', { type, query })
+  const performSearch = async (query, type, conference = '', filters = {}) => {
+    console.log('Performing search:', { type, query, conference, filters })
     
     // Check if enough time has passed since the last search
     const now = Date.now()
@@ -158,7 +154,7 @@ export function useSearch() {
     if (timeSinceLastSearch < MIN_TIME_BETWEEN_SEARCHES) {
       console.log('Throttling search, scheduling for later...')
       setTimeout(() => {
-        performSearch(query, type)
+        performSearch(query, type, conference, filters)
       }, MIN_TIME_BETWEEN_SEARCHES - timeSinceLastSearch)
       return
     }
@@ -176,7 +172,7 @@ export function useSearch() {
       switch (type) {
         case 'Teams':
           searchResults.value = {
-            teams: await searchTeams(query),
+            teams: await searchTeams(query, conference),
             players: [],
             games: []
           }
@@ -184,7 +180,7 @@ export function useSearch() {
         case 'Players':
           searchResults.value = {
             teams: [],
-            players: await searchPlayers(query),
+            players: await searchPlayers(query, filters),
             games: []
           }
           break
@@ -192,7 +188,7 @@ export function useSearch() {
           searchResults.value = {
             teams: [],
             players: [],
-            games: await searchGames(query)
+            games: await searchGames(query, filters)
           }
           break
       }
@@ -202,14 +198,14 @@ export function useSearch() {
     }
   }
   
-  const debouncedSearch = (query, type, delay = DEBOUNCE_DELAY) => {
-    console.log('Debouncing search:', { type, query, delay })
+  const debouncedSearch = (query, type, delay = DEBOUNCE_DELAY, conference = '', filters = {}) => {
+    console.log('Debouncing search:', { type, query, delay, conference, filters })
     if (searchTimeout.value) {
       clearTimeout(searchTimeout.value)
     }
     
     searchTimeout.value = setTimeout(() => {
-      performSearch(query, type)
+      performSearch(query, type, conference, filters)
     }, delay)
   }
   

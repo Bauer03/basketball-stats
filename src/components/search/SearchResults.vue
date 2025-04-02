@@ -5,6 +5,19 @@
   >
     <!-- Teams Results -->
     <div v-if="type === 'Teams'" class="results-section">
+      <div class="filters" v-if="!isLoading">
+        <v-select
+          v-model="selectedConference"
+          :items="['All', 'East', 'West']"
+          label="Conference"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+          bg-color="rgba(147, 51, 234, 0.1)"
+          class="mb-4 conference-select"
+          @update:model-value="handleConferenceChange"
+        ></v-select>
+      </div>
       <div v-if="isLoading" class="skeleton-container">
         <div v-for="i in 5" :key="`team-skeleton-${i}`" class="skeleton-item team-skeleton">
           <div class="skeleton-circle"></div>
@@ -32,6 +45,40 @@
 
     <!-- Players Results -->
     <div v-if="type === 'Players'" class="results-section">
+      <div class="filters" v-if="!isLoading">
+        <v-row>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="selectedTeam"
+              :items="teams"
+              item-title="full_name"
+              item-value="id"
+              label="Filter by Team"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              clearable
+              bg-color="rgba(147, 51, 234, 0.1)"
+              class="mb-4"
+              @update:model-value="handlePlayerTeamChange"
+            ></v-select>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="selectedPosition"
+              :items="positions"
+              label="Filter by Position"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              clearable
+              bg-color="rgba(147, 51, 234, 0.1)"
+              class="mb-4"
+              @update:model-value="handlePositionChange"
+            ></v-select>
+          </v-col>
+        </v-row>
+      </div>
       <div v-if="isLoading" class="skeleton-container">
         <div v-for="i in 5" :key="`player-skeleton-${i}`" class="skeleton-item player-skeleton">
           <div class="skeleton-circle"></div>
@@ -59,6 +106,54 @@
 
     <!-- Games Results -->
     <div v-if="type === 'Games'" class="results-section">
+      <div class="filters" v-if="!isLoading">
+        <v-row class="games-filters-row">
+          <v-col cols="12" sm="4">
+            <v-text-field
+              v-model="startDate"
+              label="Start Date"
+              type="date"
+              density="comfortable"
+              hide-details
+              bg-color="rgba(147, 51, 234, 0.1)"
+              class="date-filter"
+              @update:model-value="handleDateChange"
+              variant="outlined"
+            ></v-text-field>
+          </v-col>
+          <v-col cols="12" sm="4">
+            <v-text-field
+              v-model="endDate"
+              label="End Date"
+              type="date"
+              density="comfortable"
+              hide-details
+              bg-color="rgba(147, 51, 234, 0.1)"
+              class="date-filter"
+              @update:model-value="handleDateChange"
+              variant="outlined"
+            ></v-text-field>
+          </v-col>
+          <v-col cols="12" sm="4">
+            <v-select
+              v-model="selectedTeams"
+              :items="teams"
+              item-title="full_name"
+              item-value="id"
+              label="Filter by Teams"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              multiple
+              chips
+              bg-color="rgba(147, 51, 234, 0.1)"
+              class="teams-filter"
+              @update:model-value="handleTeamChange"
+              return-object
+            ></v-select>
+          </v-col>
+        </v-row>
+      </div>
       <div v-if="isLoading" class="skeleton-container">
         <div v-for="i in 5" :key="`game-skeleton-${i}`" class="skeleton-item game-skeleton">
           <div class="skeleton-lines">
@@ -83,7 +178,52 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue'
+import { defineProps, defineEmits, ref, onMounted } from 'vue'
+import api from '@/api/axios'
+
+const selectedConference = ref('All')
+const startDate = ref('')
+const endDate = ref('')
+const selectedTeams = ref([])
+const selectedTeam = ref(null)
+const selectedPosition = ref(null)
+const teams = ref([])
+const positions = ['PG', 'SG', 'SF', 'PF', 'C']
+
+const emit = defineEmits([
+  'select', 
+  'conference-change', 
+  'date-change', 
+  'team-change',
+  'player-team-change',
+  'position-change',
+  'refocus'
+])
+
+const handleConferenceChange = (value) => {
+  emit('conference-change', value)
+  emit('refocus')
+}
+
+const handleDateChange = () => {
+  emit('date-change', { startDate: startDate.value, endDate: endDate.value })
+  emit('refocus')
+}
+
+const handleTeamChange = (value) => {
+  emit('team-change', value)
+  emit('refocus')
+}
+
+const handlePlayerTeamChange = (value) => {
+  emit('player-team-change', value)
+  emit('refocus')
+}
+
+const handlePositionChange = (value) => {
+  emit('position-change', value)
+  emit('refocus')
+}
 
 const props = defineProps({
   type: {
@@ -113,8 +253,6 @@ const props = defineProps({
   }
 })
 
-defineEmits(['select'])
-
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -122,6 +260,19 @@ const formatDate = (date) => {
     day: 'numeric'
   })
 }
+
+const fetchTeams = async () => {
+  try {
+    const response = await api.get('/teams')
+    teams.value = response.data.data
+  } catch (err) {
+    console.error('Failed to load teams:', err)
+  }
+}
+
+onMounted(async () => {
+  await fetchTeams()
+})
 </script>
 
 <style scoped>
@@ -130,10 +281,14 @@ const formatDate = (date) => {
   overflow-y: auto;
   padding: 1rem;
   background-color: var(--color-bg-elevated);
+  position: relative;
+  z-index: 9999;
 }
 
 .results-section {
   padding: 0.5rem;
+  position: relative;
+  z-index: 9999;
 }
 
 .result-item {
@@ -144,10 +299,27 @@ const formatDate = (date) => {
   cursor: pointer;
   transition: all 0.2s ease;
   margin-bottom: 0.5rem;
+  position: relative;
+  z-index: 9999;
 }
 
 .result-item:hover {
   background-color: var(--searchbar-bg-hover);
+}
+
+.filters {
+  position: relative;
+  z-index: 9999;
+  margin-bottom: 1rem;
+}
+
+:deep(.v-select) {
+  position: relative;
+  z-index: 9999;
+}
+
+:deep(.v-menu__content) {
+  z-index: 9999 !important;
 }
 
 .no-results {
@@ -284,5 +456,58 @@ const formatDate = (date) => {
 .game-date {
   font-size: 0.875rem;
   color: var(--color-text-muted);
+}
+
+:deep(.conference-select .v-field__append-inner) {
+  display: none !important;
+}
+
+:deep(.conference-select .v-field) {
+  padding-right: 0 !important;
+}
+
+.games-filters-row {
+  margin: 0 -8px;
+}
+
+.games-filters-row .v-col {
+  padding: 0 8px;
+}
+
+.date-filter :deep(.v-field__input) {
+  min-height: 40px !important;
+  padding: 0 0 0 12px !important;
+}
+
+.date-filter :deep(.v-field) {
+  border-radius: 6px !important;
+  padding-right: 0 !important;
+}
+
+.date-filter :deep(.v-field__outline) {
+  --v-field-border-opacity: 0.2;
+}
+
+.date-filter :deep(.v-field--variant-outlined .v-field__outline__start),
+.date-filter :deep(.v-field--variant-outlined .v-field__outline__end) {
+  border-color: rgba(147, 51, 234, var(--v-field-border-opacity));
+}
+
+.date-filter :deep(.v-field:hover .v-field__outline__start),
+.date-filter :deep(.v-field:hover .v-field__outline__end) {
+  border-color: rgba(147, 51, 234, 0.4);
+}
+
+.date-filter :deep(.v-field--focused .v-field__outline__start),
+.date-filter :deep(.v-field--focused .v-field__outline__end) {
+  border-color: rgba(147, 51, 234, 0.7);
+}
+
+.teams-filter :deep(.v-field) {
+  padding: 0 8px !important;
+}
+
+.teams-filter :deep(.v-field__input) {
+  padding: 8px !important;
 }
 </style> 

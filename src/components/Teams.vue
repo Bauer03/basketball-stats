@@ -1,16 +1,10 @@
 <template>
   <div class="teams-container">
     <div class="teams-header">
-      <h1 class="teams-title">NBA Teams</h1>
-      <div class="filter-controls">
-        <v-select
-          v-model="selectedConference"
-          :items="['All', 'East', 'West']"
-          label="Conference"
-          density="comfortable"
-          class="conference-filter"
-        ></v-select>
-      </div>
+      <h1 class="text-h4 font-weight-bold mb-6">NBA Teams</h1>
+      <v-row>
+        <!-- Removed conference filter -->
+      </v-row>
     </div>
 
     <div class="teams-layout">
@@ -22,12 +16,13 @@
 
         <div class="teams-grid">
           <template v-if="isLoading">
-            <v-skeleton-loader
-              v-for="n in 25"
-              :key="n"
-              type="card"
-              class="team-card-skeleton"
-            ></v-skeleton-loader>
+            <div v-for="i in 16" :key="`team-skeleton-${i}`" class="skeleton-card">
+              <div class="team-card-content">
+                <div class="skeleton-abbr"></div>
+                <div class="skeleton-name"></div>
+                <div class="skeleton-division"></div>
+              </div>
+            </div>
           </template>
           <template v-else>
             <v-card
@@ -59,15 +54,33 @@
 
       <!-- Team Details Column -->
       <div class="team-details-column">
-        <div v-if="isLoadingDetails || !selectedTeam" class="details-loading">
-          <v-progress-circular
-            indeterminate
-            color="#e9d5ff"
-            size="48"
-          ></v-progress-circular>
+        <div v-if="isLoading" class="skeleton-details">
+          <div class="skeleton-header">
+            <div class="skeleton-title"></div>
+            <div class="skeleton-badges">
+              <div class="skeleton-badge"></div>
+              <div class="skeleton-badge"></div>
+            </div>
+          </div>
+          <div class="skeleton-divider"></div>
+          <div class="skeleton-stats-title"></div>
+          <div class="skeleton-stats-grid">
+            <div v-for="i in 4" :key="`stat-skeleton-${i}`" class="skeleton-stat-item">
+              <div class="skeleton-stat-value"></div>
+              <div class="skeleton-stat-label"></div>
+            </div>
+          </div>
+          <div class="skeleton-divider"></div>
+          <div class="skeleton-stats-title"></div>
+          <div class="skeleton-stats-grid">
+            <div v-for="i in 4" :key="`stat-skeleton-${i + 4}`" class="skeleton-stat-item">
+              <div class="skeleton-stat-value"></div>
+              <div class="skeleton-stat-label"></div>
+            </div>
+          </div>
         </div>
-        
-        <div v-else class="team-details">
+
+        <div v-else-if="selectedTeam" class="team-details">
           <div class="details-header">
             <div class="header-left">
               <h2>{{ selectedTeam.full_name }}</h2>
@@ -137,7 +150,6 @@ const teamDetails = ref(null)
 const isLoading = ref(true)
 const isLoadingDetails = ref(false)
 const error = ref(null)
-const selectedConference = ref('All')
 const favoriteTeams = ref(new Set())
 
 const isFavorite = (teamId) => favoriteTeams.value.has(teamId)
@@ -152,10 +164,7 @@ const toggleFavorite = (team) => {
   localStorage.setItem('favoriteTeams', JSON.stringify([...favoriteTeams.value]))
 }
 
-const filteredTeams = computed(() => {
-  if (selectedConference.value === 'All') return teams.value
-  return teams.value.filter(team => team.conference === selectedConference.value)
-})
+const filteredTeams = computed(() => teams.value)
 
 const fetchTeams = async () => {
   isLoading.value = true
@@ -207,46 +216,31 @@ onMounted(() => {
 <style scoped>
 .teams-container {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
-  min-height: calc(100vh - 64px);
 }
 
 .teams-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-}
-
-.teams-title {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.filter-controls {
-  width: 200px;
+  margin-bottom: 2rem;
 }
 
 .teams-layout {
   display: grid;
   grid-template-columns: 7fr 3fr;
-  gap: var(--spacing-xl);
-  height: calc(100% - 80px); /* Adjust based on header height */
+  gap: 2rem;
 }
 
 .teams-grid-column {
   overflow-y: auto;
-  padding-right: var(--spacing-md);
+  padding-right: 1rem;
 }
 
 .teams-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-bottom: 2rem;
-  padding-top: 8px; /* Add padding to prevent hover crop */
+  padding-top: 4px;
 }
 
 .team-card {
@@ -278,12 +272,12 @@ onMounted(() => {
 }
 
 .team-card-content {
+  width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
 }
 
 .team-abbr {
@@ -309,7 +303,7 @@ onMounted(() => {
   border-radius: 8px;
   padding: 2rem;
   min-height: 400px;
-  padding-top: 2.5rem; /* Add padding to match teams grid */
+  padding-top: 2.5rem;
 }
 
 .team-details h2 {
@@ -366,10 +360,10 @@ onMounted(() => {
 }
 
 .team-details-column {
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  min-height: 400px;
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 8px;
+  padding: 2rem;
   height: fit-content;
   position: sticky;
   top: 2rem;
@@ -436,13 +430,13 @@ onMounted(() => {
 
 .standings-item .label {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: rgba(233, 213, 255, 0.7);
 }
 
 .standings-item .value {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: #e9d5ff;
 }
 
 .details-loading {
@@ -491,5 +485,141 @@ onMounted(() => {
 
 :deep(.v-btn:hover) {
   background: none !important;
+}
+
+.skeleton-card {
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+  animation: pulse 1.5s infinite;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.skeleton-abbr {
+  height: 32px;
+  width: 60%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-name {
+  height: 20px;
+  width: 80%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-division {
+  height: 16px;
+  width: 40%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Skeleton Loading Styles */
+.skeleton-details {
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 8px;
+  padding: 2rem;
+  animation: pulse 1.5s infinite;
+}
+
+.skeleton-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.skeleton-title {
+  height: 32px;
+  width: 70%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.skeleton-badge {
+  height: 24px;
+  width: 120px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 16px;
+}
+
+.skeleton-divider {
+  height: 1px;
+  background: rgba(147, 51, 234, 0.2);
+  margin: 1.5rem 0;
+}
+
+.skeleton-stats-title {
+  height: 24px;
+  width: 40%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.skeleton-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.skeleton-stat-value {
+  height: 32px;
+  width: 60%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-stat-label {
+  height: 16px;
+  width: 80%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 </style> 

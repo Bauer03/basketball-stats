@@ -15,17 +15,23 @@
           @focus="handleFocus"
           @blur="handleBlur"
           ref="searchInput"
-          :prepend-inner-icon="isSearching ? 'mdi-loading mdi-spin' : 'mdi-magnify'"
           bg-color="surface"
           rounded="xl"
           :style="{ '--v-theme-surface': 'rgba(147, 51, 234, 0.1)' }"
           :readonly="isSearching"
+          @keydown.down.prevent="handleKeyDown"
+          @keydown.up.prevent="handleKeyUp"
+          @keydown.enter.prevent="handleEnter"
+          @keydown.esc.prevent="handleEscape"
         >
+          <template v-slot:prepend-inner>
+            <v-icon color="rgba(147, 51, 234, 0.7)">{{ isSearching ? 'mdi-loading mdi-spin' : 'mdi-magnify' }}</v-icon>
+          </template>
         </v-text-field>
         <v-btn
-          class="search-type-btn"
-          :color="searchType.toLowerCase()"
+          :color="searchType"
           variant="text"
+          class="search-type-btn"
           @click="cycleSearchType"
           @mousedown.prevent
         >
@@ -39,14 +45,19 @@
         location="bottom"
         offset="10"
         transition="scale-transition"
-        min-width="100%"
+        :width="searchInput?.$el?.offsetWidth"
         :z-index="9999"
+        :close-on-click="false"
+        :close-delay="0"
+        :open-delay="0"
+        :close-on-back="false"
+        persistent
       >
         <template v-slot:activator="{ props }">
-          <div v-bind="props" style="width: 100%; height: 0;"></div>
+          <div v-bind="props" class="search-activator" style="width: 100%; height: 0;"></div>
         </template>
 
-        <v-card class="search-results-card">
+        <v-card class="search-results-card" style="width: 100%;">
           <SearchResults
             :type="searchType"
             :is-loading="isSearching"
@@ -55,6 +66,12 @@
             :players="searchResults?.players || []"
             :games="searchResults?.games || []"
             @select="handleSelect"
+            @conference-change="handleConferenceChange"
+            @date-change="handleDateChange"
+            @team-change="handleTeamChange"
+            @player-team-change="handlePlayerTeamChange"
+            @position-change="handlePositionChange"
+            @refocus="handleRefocus"
           />
         </v-card>
       </v-menu>
@@ -63,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useSearch } from '@/composables/useSearch'
 import SearchResults from './SearchResults.vue'
 
@@ -74,7 +91,7 @@ const currentTypeIndex = ref(0)
 const searchQuery = ref('')
 const displayQuery = ref('')
 const searchInput = ref(null)
-const showResults = ref(false)
+const showResults = ref(true)
 
 const { searchResults, isLoading: isSearching, debouncedSearch } = useSearch()
 
@@ -133,12 +150,81 @@ const handleSelect = (item) => {
 
 const handleFocus = () => {
   showResults.value = true
+  if (displayQuery.value) {
+    debouncedSearch(displayQuery.value, searchType.value)
+  }
 }
 
-const handleBlur = () => {
+const handleBlur = (e) => {
+  // Only hide results if clicking outside both the input and results
   setTimeout(() => {
-    showResults.value = false
-  }, 200)
+    const activeElement = document.activeElement
+    const clickedElement = e.relatedTarget
+    const searchContainer = document.querySelector('.search-container')
+    const isClickingSearchContainer = searchContainer?.contains(clickedElement)
+    const isClickingResults = activeElement?.closest('.search-results-card') || clickedElement?.closest('.search-results-card')
+    
+    if (!isClickingResults && !isClickingSearchContainer) {
+      showResults.value = false
+    }
+  }, 0)
+}
+
+const handleConferenceChange = (conference) => {
+  // Update the search with the new conference filter
+  if (searchType.value === 'Teams') {
+    debouncedSearch(displayQuery.value, searchType.value, 0, conference)
+  }
+}
+
+const handleDateChange = ({ startDate, endDate }) => {
+  // Update the search with the new date filters
+  if (searchType.value === 'Games') {
+    debouncedSearch(displayQuery.value, searchType.value, 0, null, { startDate, endDate })
+  }
+}
+
+const handleTeamChange = (teams) => {
+  // Update the search with the new team filters
+  if (searchType.value === 'Games') {
+    debouncedSearch(displayQuery.value, searchType.value, 0, null, { teams })
+  }
+}
+
+const handlePlayerTeamChange = (team) => {
+  // Update the search with the new player team filter
+  if (searchType.value === 'Players') {
+    debouncedSearch(displayQuery.value, searchType.value, 0, null, { team })
+  }
+}
+
+const handlePositionChange = (position) => {
+  // Update the search with the new position filter
+  if (searchType.value === 'Players') {
+    debouncedSearch(displayQuery.value, searchType.value, 0, null, { position })
+  }
+}
+
+const handleRefocus = () => {
+  // Focus the input but keep the results visible
+  searchInput.value?.focus()
+  showResults.value = true
+}
+
+const handleKeyDown = () => {
+  // Handle key down event
+}
+
+const handleKeyUp = () => {
+  // Handle key up event
+}
+
+const handleEnter = () => {
+  // Handle enter key event
+}
+
+const handleEscape = () => {
+  // Handle escape key event
 }
 
 // Remove debug watchers
@@ -147,10 +233,38 @@ watch(showResults, () => {})
 watch(isSearching, () => {})
 
 onMounted(() => {
-  // Add a slight delay to ensure focus animation triggers
-  setTimeout(() => {
-    searchInput.value.$el.querySelector('input').focus()
-  }, 100)
+  // Focus the input immediately
+  const input = searchInput.value?.$el?.querySelector('input')
+  if (input) {
+    input.focus()
+    showResults.value = true
+  }
+
+  // Listen for view changes
+  window.addEventListener('stats-view-changed', (event) => {
+    const view = event.detail
+    const index = searchTypes.findIndex(type => type.toLowerCase() === view)
+    if (index !== -1) {
+      currentTypeIndex.value = index
+      // Clear the search query when switching views
+      displayQuery.value = ''
+      // Don't show results when switching views via tab clicks
+      showResults.value = false
+    }
+  })
+})
+
+// Clean up event listener
+onUnmounted(() => {
+  window.removeEventListener('stats-view-changed', (event) => {
+    const view = event.detail
+    const index = searchTypes.findIndex(type => type.toLowerCase() === view)
+    if (index !== -1) {
+      currentTypeIndex.value = index
+      displayQuery.value = ''
+      showResults.value = false
+    }
+  })
 })
 
 // Expose search functionality to parent components
@@ -163,10 +277,11 @@ defineExpose({
 <style scoped>
 .search-container {
   flex: 1;
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   position: relative;
   z-index: 9999;
+  width: 100%;
 }
 
 .search-wrapper {
@@ -180,26 +295,28 @@ defineExpose({
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   z-index: 9999;
+}
+
+.search-input {
+  width: 100%;
+}
+
+:deep(.v-input__control) {
+  width: 100%;
 }
 
 .search-type-btn {
   position: absolute;
   right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 1;
   font-weight: 500;
   text-transform: capitalize;
-  background-color: var(--color-button-bg) !important;
-  color: var(--color-button-text) !important;
-  transition: all 0.2s ease;
-  border-radius: var(--radius-full) !important;
-  height: max-content;
-}
-
-.search-type-btn:hover {
-  background-color: var(--color-button-bg-hover) !important;
-  color: var(--color-button-text-hover) !important;
+  border-radius: 9999px;
+  min-width: 80px;
+  height: 32px;
 }
 
 .search-results-card {
@@ -215,12 +332,18 @@ defineExpose({
   padding-right: 100px !important;
   transition: all 0.2s ease !important;
   position: relative;
-  z-index: 9999;
+  z-index: 0;
+  width: 100%;
+}
+
+:deep(.v-field__field) {
+  width: 100%;
 }
 
 :deep(.v-field__input) {
   color: var(--color-text-primary) !important;
   padding: var(--spacing-md) var(--spacing-lg) !important;
+  padding-right: 96px !important;
   position: relative;
   z-index: 9999;
 }
@@ -231,6 +354,10 @@ defineExpose({
   transition: all 0.2s ease;
   position: relative;
   z-index: 9999;
+}
+
+:deep(.v-field__append-inner) {
+  padding-inline-end: 0 !important;
 }
 
 :deep(.mdi-spin) {
@@ -264,5 +391,9 @@ defineExpose({
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+:deep(.v-menu__content) {
+  z-index: 9999 !important;
 }
 </style> 

@@ -1,18 +1,15 @@
 <template>
   <v-app-bar color="#121212" theme="dark" elevation="4" class="navbar">
     <v-app-bar-title class="d-flex align-center">
-      <router-link to="/" class="text-decoration-none">
+      <router-link :to="authStore.isAuthenticated ? '/teams' : '/'" class="text-decoration-none">
         <span class="text-h6 font-weight-bold" style="color: #e9d5ff">NBA Stats</span>
       </router-link>
     </v-app-bar-title>
 
-    <v-spacer></v-spacer>
-
     <template v-if="authStore.isAuthenticated">
-      <div class="d-flex align-center justify-center search-container">
+      <div class="search-container">
         <SearchBar />
       </div>
-      <v-spacer></v-spacer>
       <v-btn
         color="#9333ea"
         variant="text"
@@ -71,15 +68,20 @@ const handleLogout = async () => {
   right: 0;
   z-index: 9999;
   overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px !important;
 }
 
 .search-container {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   width: 600px;
-  margin: 0 auto;
-  padding: 0 1rem;
-  position: relative;
   z-index: 9999;
-  overflow: visible;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* App bar styles */
@@ -91,12 +93,18 @@ const handleLogout = async () => {
   right: 0;
   z-index: 9999;
   overflow: visible;
+  height: 64px !important;
 }
 
 :deep(.v-app-bar__content) {
   overflow: visible;
   position: relative;
   z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100% !important;
 }
 
 :deep(.v-app-bar__prepend),
@@ -104,6 +112,10 @@ const handleLogout = async () => {
   overflow: visible;
   position: relative;
   z-index: 9999;
+  flex: 0 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 
 /* Button styles */

@@ -60,7 +60,7 @@ export const useTeamsStore = defineStore('teams', {
         // Update state
         this.teams = options.cursor ? [...this.teams, ...data.data] : data.data
         this.cursor = options.cursor
-        this.nextCursor = data.meta.next_cursor
+        this.nextCursor = data.meta?.next_cursor || null
         
         return data
       } catch (err) {

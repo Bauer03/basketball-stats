@@ -40,7 +40,7 @@ export const usePlayersStore = defineStore('players', {
           queryParams.append('cursor', options.cursor)
         }
         if (options.teamId) {
-          queryParams.append('team_id', options.teamId)
+          queryParams.append('team_ids[]', options.teamId)
         }
         if (options.season) {
           queryParams.append('season', options.season)
@@ -63,7 +63,7 @@ export const usePlayersStore = defineStore('players', {
         // Update state
         this.players = options.cursor ? [...this.players, ...data.data] : data.data
         this.cursor = options.cursor
-        this.nextCursor = data.meta.next_cursor
+        this.nextCursor = data.meta?.next_cursor
         
         return data
       } catch (err) {
@@ -82,18 +82,13 @@ export const usePlayersStore = defineStore('players', {
       }
     },
 
-    async fetchPlayerById(playerId, season = null) {
+    async fetchPlayerById(playerId) {
       this.loading = true
       this.error = null
       
       try {
         const userStore = useUserStore()
-        const queryParams = new URLSearchParams()
-        if (season) {
-          queryParams.append('season', season)
-        }
-
-        const url = `${API_BASE_URL}/players/${playerId}${queryParams.toString() ? '?' + queryParams : ''}`
+        const url = `${API_BASE_URL}/players/${playerId}`
         console.log('Fetching player details from:', url)
 
         const response = await fetch(url, {
@@ -103,17 +98,45 @@ export const usePlayersStore = defineStore('players', {
         })
 
         const data = await handleApiResponse(response)
-        this.currentPlayer = data.player
-        this.currentPlayerStats = data.stats
-        return data
+        
+        // Get player stats for the 2023-2024 season
+        const statsUrl = `${API_BASE_URL}/players/${playerId}/stats?season=2024`
+        
+        try {
+          const statsResponse = await fetch(statsUrl, {
+            headers: {
+              'Authorization': `Bearer ${userStore.token}`
+            }
+          })
+          
+          if (statsResponse.status === 404) {
+            // If stats are not found, return player data without stats
+            return {
+              player: data.player.data,
+              stats: null
+            }
+          }
+          
+          const statsData = await handleApiResponse(statsResponse)
+          return {
+            player: data.player.data,
+            stats: statsData.stats?.data?.[0] || null
+          }
+        } catch (statsErr) {
+          console.warn('Failed to fetch player stats:', statsErr)
+          // Return player data without stats if stats fetch fails
+          return {
+            player: data.player.data,
+            stats: null
+          }
+        }
       } catch (err) {
         console.error('Error in fetchPlayerById:', {
           message: err.message,
           status: err.status,
           stack: err.stack,
           response: err.response,
-          playerId,
-          season
+          playerId
         })
         this.error = err.message
         if (err.status === 404) {
