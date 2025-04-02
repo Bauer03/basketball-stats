@@ -10,15 +10,27 @@
       <div class="search-container">
         <SearchBar />
       </div>
-      <v-btn
-        color="#9333ea"
-        variant="text"
-        :loading="authStore.isLoading"
-        :disabled="authStore.isLoading"
-        @click="handleLogout"
-      >
-        Logout
-      </v-btn>
+      <div class="d-flex gap-1">
+        <v-btn
+          color="#9333ea"
+          variant="text"
+          :loading="authStore.isLoading"
+          :disabled="authStore.isLoading"
+          @click="handleLogout"
+        >
+          Logout
+        </v-btn>
+        <v-btn 
+          color="#9333ea"
+          variant="text"
+          :loading="authStore.isLoading"
+          :disabled="authStore.isLoading"
+          @click="handleProfile"
+          class="material-symbols-outlined"
+        >
+          person
+        </v-btn>
+      </div>
     </template>
 
     <template v-else>
@@ -57,9 +69,17 @@ const handleLogout = async () => {
     console.error('Logout failed:', error)
   }
 }
+
+const handleProfile = () => {
+  router.push('/profile')
+}
 </script>
 
 <style scoped>
+.gap-1 {
+  gap: 1rem;
+}
+
 .navbar {
   padding: 0.5rem 2rem !important;
   position: fixed;
@@ -71,7 +91,6 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px !important;
 }
 
 .search-container {

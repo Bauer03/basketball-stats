@@ -1,7 +1,7 @@
 <template>
   <div class="teams-container">
     <div class="teams-header">
-      <h1 class="text-h4 font-weight-bold mb-6">NBA Teams</h1>
+      <h1 class="text-h4 font-weight-bold mb-6">Teams</h1>
       <v-row>
         <!-- Removed conference filter -->
       </v-row>
@@ -258,6 +258,7 @@ onMounted(() => {
   position: relative;
   transform: translateY(0);
   user-select: none;
+  -webkit-user-select: none;
 }
 
 .team-card:hover {

@@ -1,7 +1,7 @@
 <template>
   <div class="games-container">
     <div class="games-header">
-      <h1 class="text-h4 font-weight-bold mb-6">NBA Games</h1>
+      <h1 class="text-h4 font-weight-bold mb-6">Games</h1>
     </div>
 
     <div v-if="error" class="mt-4">

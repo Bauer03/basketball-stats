@@ -82,7 +82,7 @@ export const usePlayersStore = defineStore('players', {
       }
     },
 
-    async fetchPlayerById(playerId) {
+    async fetchPlayerById(playerId, season = 2024) {
       this.loading = true
       this.error = null
       
@@ -100,7 +100,7 @@ export const usePlayersStore = defineStore('players', {
         const data = await handleApiResponse(response)
         
         // Get player stats for the 2023-2024 season
-        const statsUrl = `${API_BASE_URL}/players/${playerId}/stats?season=2024`
+        const statsUrl = `${API_BASE_URL}/players/${playerId}/stats?season=${season}`
         
         try {
           const statsResponse = await fetch(statsUrl, {

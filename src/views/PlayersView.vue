@@ -1,6 +1,6 @@
 <template>
   <div class="players-container">
-    <h1 class="text-h4 font-weight-bold mb-6">NBA Players</h1>
+    <h1 class="text-h4 font-weight-bold mb-6">Players</h1>
     
     <div v-if="error" class="mt-4">
       <v-alert type="error" text="Failed to load players. Please try again."></v-alert>
@@ -385,8 +385,10 @@ const selectPlayer = async (player) => {
   try {
     loadingDetails.value = true
     const result = await playersStore.fetchPlayerById(player.id)
+    console.log(result);  
     selectedPlayer.value = result.player
     playerStats.value = result.stats
+    console.log(playerStats.value);
   } catch (err) {
     console.error('Failed to fetch player details:', err)
     // If the player exists in our local list, use that data
