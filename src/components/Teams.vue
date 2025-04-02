@@ -59,15 +59,15 @@
 
       <!-- Team Details Column -->
       <div class="team-details-column">
-        <div v-if="isLoadingDetails" class="details-loading">
+        <div v-if="isLoadingDetails || !selectedTeam" class="details-loading">
           <v-progress-circular
             indeterminate
-            color="primary"
+            color="#e9d5ff"
             size="48"
           ></v-progress-circular>
         </div>
         
-        <div v-else-if="selectedTeam" class="team-details">
+        <div v-else class="team-details">
           <div class="details-header">
             <div class="header-left">
               <h2>{{ selectedTeam.full_name }}</h2>
@@ -121,11 +121,6 @@
               <span class="value">{{ teamDetails.standings.division_record }}</span>
             </div>
           </div>
-        </div>
-
-        <div v-else class="no-team-selected">
-          <v-icon size="64" color="grey-lighten-1">mdi-basketball</v-icon>
-          <p>Select a team to view details</p>
         </div>
       </div>
     </div>
@@ -251,6 +246,7 @@ onMounted(() => {
   grid-template-columns: repeat(5, 1fr);
   gap: 1.5rem;
   margin-bottom: 2rem;
+  padding-top: 8px; /* Add padding to prevent hover crop */
 }
 
 .team-card {
@@ -267,6 +263,7 @@ onMounted(() => {
   aspect-ratio: 1;
   position: relative;
   transform: translateY(0);
+  user-select: none;
 }
 
 .team-card:hover {
@@ -311,6 +308,8 @@ onMounted(() => {
   border: 1px solid rgba(147, 51, 234, 0.2);
   border-radius: 8px;
   padding: 2rem;
+  min-height: 400px;
+  padding-top: 2.5rem; /* Add padding to match teams grid */
 }
 
 .team-details h2 {
@@ -370,9 +369,11 @@ onMounted(() => {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
+  min-height: 400px;
   height: fit-content;
   position: sticky;
   top: 2rem;
+  margin-top: 8px;
 }
 
 .details-header {
@@ -444,21 +445,12 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-.no-team-selected {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  gap: var(--spacing-md);
-  padding: 2rem;
-}
-
 .details-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  min-height: 400px;
+  width: 100%;
 }
 
 .team-card-skeleton {

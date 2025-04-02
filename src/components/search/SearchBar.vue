@@ -1,80 +1,150 @@
 <template>
   <div class="search-container">
     <div class="search-wrapper">
-      <div class="search-type-indicator">
-        Searching {{ searchType }}
-      </div>
       <div class="search-bar">
         <v-text-field
           v-model="displayQuery"
-          :placeholder="`'tab' to cycle | Search ${searchType.toLowerCase()}...`"
+          :placeholder="placeholderText"
           variant="outlined"
           density="comfortable"
           hide-details
           class="search-input"
           @keydown.tab.prevent="cycleSearchType"
           @keydown.enter="handleSearch"
+          @input="handleInput"
+          @focus="handleFocus"
+          @blur="handleBlur"
           ref="searchInput"
-          prepend-inner-icon="mdi-magnify"
+          :prepend-inner-icon="isSearching ? 'mdi-loading mdi-spin' : 'mdi-magnify'"
           bg-color="surface"
           rounded="xl"
           :style="{ '--v-theme-surface': 'rgba(147, 51, 234, 0.1)' }"
           :readonly="isSearching"
         >
         </v-text-field>
-        <Transition name="fade">
-          <v-progress-circular
-            v-if="isSearching"
-            indeterminate
-            color="rgb(233, 213, 255)"
-            size="24"
-            width="2"
-            class="search-loader"
-          ></v-progress-circular>
-        </Transition>
+        <v-btn
+          class="search-type-btn"
+          :color="searchType.toLowerCase()"
+          variant="text"
+          @click="cycleSearchType"
+          @mousedown.prevent
+        >
+          {{ searchType }}
+        </v-btn>
       </div>
+
+      <v-menu
+        v-model="showResults"
+        :close-on-content-click="false"
+        location="bottom"
+        offset="10"
+        transition="scale-transition"
+        min-width="100%"
+        :z-index="9999"
+      >
+        <template v-slot:activator="{ props }">
+          <div v-bind="props" style="width: 100%; height: 0;"></div>
+        </template>
+
+        <v-card class="search-results-card">
+          <SearchResults
+            :type="searchType"
+            :is-loading="isSearching"
+            :is-visible="true"
+            :teams="searchResults?.teams || []"
+            :players="searchResults?.players || []"
+            :games="searchResults?.games || []"
+            @select="handleSelect"
+          />
+        </v-card>
+      </v-menu>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useSearch } from '@/composables/useSearch'
+import SearchResults from './SearchResults.vue'
+
+const emit = defineEmits(['select'])
 
 const searchTypes = ['Teams', 'Players', 'Games']
 const currentTypeIndex = ref(0)
 const searchQuery = ref('')
 const displayQuery = ref('')
 const searchInput = ref(null)
-const isSearching = ref(false)
+const showResults = ref(false)
+
+const { searchResults, isLoading: isSearching, debouncedSearch } = useSearch()
 
 const searchType = computed(() => searchTypes[currentTypeIndex.value])
+const hasResults = computed(() => {
+  if (!searchResults) return false
+  
+  switch (searchType.value) {
+    case 'Teams':
+      return searchResults.teams?.length > 0
+    case 'Players':
+      return searchResults.players?.length > 0
+    case 'Games':
+      return searchResults.games?.length > 0
+    default:
+      return false
+  }
+})
+
+const placeholderText = computed(() => {
+  switch (searchType.value) {
+    case 'Teams':
+      return 'Search for teams...'
+    case 'Players':
+      return 'Search for players...'
+    case 'Games':
+      return 'Search for games...'
+    default:
+      return 'Search...'
+  }
+})
 
 const cycleSearchType = () => {
   currentTypeIndex.value = (currentTypeIndex.value + 1) % searchTypes.length
-}
-
-const handleSearch = async () => {
-  if (!displayQuery.value.trim() || isSearching.value) return
-  
-  // Save the current query
-  searchQuery.value = displayQuery.value
-  isSearching.value = true
-  
-  try {
-    // Simulate API call - replace this with your actual search logic
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // If search is successful, you can emit the results
-    // emit('search-complete', results)
-  } catch (error) {
-    // Handle error case
-    console.error('Search failed:', error)
-  } finally {
-    isSearching.value = false
-    // Restore the query
-    displayQuery.value = searchQuery.value
+  if (displayQuery.value) {
+    debouncedSearch(displayQuery.value, searchType.value)
   }
 }
+
+const handleInput = () => {
+  showResults.value = true
+  debouncedSearch(displayQuery.value, searchType.value)
+}
+
+const handleSearch = () => {
+  if (!displayQuery.value.trim() || isSearching.value) return
+  showResults.value = true
+  debouncedSearch(displayQuery.value, searchType.value, 0)
+}
+
+const handleSelect = (item) => {
+  emit('select', { type: searchType.value, item })
+  showResults.value = false
+  displayQuery.value = ''
+}
+
+const handleFocus = () => {
+  showResults.value = true
+}
+
+const handleBlur = () => {
+  setTimeout(() => {
+    showResults.value = false
+  }, 200)
+}
+
+// Remove debug watchers
+watch(searchResults, () => {}, { deep: true })
+watch(showResults, () => {})
+watch(isSearching, () => {})
 
 onMounted(() => {
   // Add a slight delay to ensure focus animation triggers
@@ -93,60 +163,87 @@ defineExpose({
 <style scoped>
 .search-container {
   flex: 1;
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
+  position: relative;
+  z-index: 9999;
 }
 
 .search-wrapper {
   position: relative;
-}
-
-.search-type-indicator {
-  position: absolute;
-  top: calc(-1 * var(--spacing-xl));
-  left: var(--spacing-md);
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  z-index: 9999;
+  width: 100%;
 }
 
 .search-bar {
   width: 100%;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 9999;
 }
 
-.search-loader {
+.search-type-btn {
   position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 0.7rem;
   z-index: 1;
+  font-weight: 500;
+  text-transform: capitalize;
+  background-color: var(--color-button-bg) !important;
+  color: var(--color-button-text) !important;
+  transition: all 0.2s ease;
+  border-radius: var(--radius-full) !important;
+  height: max-content;
+}
+
+.search-type-btn:hover {
+  background-color: var(--color-button-bg-hover) !important;
+  color: var(--color-button-text-hover) !important;
+}
+
+.search-results-card {
+  background-color: var(--color-bg-elevated) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 4px 20px var(--shadow-color) !important;
 }
 
 :deep(.v-field) {
   border-radius: var(--radius-full) !important;
   background: var(--searchbar-bg) !important;
-  border: 1px solid var(--color-border-light) !important;
-}
-
-:deep(.v-field:hover) {
-  background: var(--searchbar-bg-hover) !important;
-  border-color: var(--color-border-medium) !important;
-}
-
-:deep(.v-field:focus-within) {
-  background: var(--searchbar-bg-focus) !important;
+  padding-right: 100px !important;
+  transition: all 0.2s ease !important;
+  position: relative;
+  z-index: 9999;
 }
 
 :deep(.v-field__input) {
   color: var(--color-text-primary) !important;
-  padding: var(--spacing-sm) var(--spacing-md) !important;
+  padding: var(--spacing-md) var(--spacing-lg) !important;
+  position: relative;
+  z-index: 9999;
 }
 
 :deep(.v-field__prepend-inner) {
-  padding-inline-start: var(--spacing-md) !important;
+  padding-inline-start: var(--spacing-lg) !important;
   color: var(--color-interactive) !important;
-  opacity: v-bind(isSearching ? 0 : 1);
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 9999;
+}
+
+:deep(.mdi-spin) {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 :deep(input::placeholder) {
@@ -157,13 +254,15 @@ defineExpose({
   margin-right: var(--spacing-md);
 }
 
+/* Transition styles */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+  transform: translateY(-4px);
 }
 </style> 

@@ -48,9 +48,22 @@ body {
   padding-top: 2rem !important;
   min-height: calc(100vh - 64px);
   background-color: var(--background-dark);
+  position: relative;
+  z-index: 1;
   margin-top: 64px !important;
 }
 
+:deep(.v-application) {
+  position: relative;
+  z-index: 1;
+}
+
+:deep(.v-main) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Select styles */
 :deep(.v-select) {
   color: #e9d5ff !important;
 }

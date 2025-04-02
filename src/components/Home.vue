@@ -1,11 +1,26 @@
 <!-- Home.vue -->
 <template>
   <div class="home">
-    <h1>Welcome to Basketball Stats</h1>
-    <p>Track and analyze your favorite basketball teams and players.</p>
-    <div class="cta-buttons">
-      <router-link to="/register" class="cta-button">Get Started</router-link>
-      <router-link to="/login" class="cta-button secondary">Login</router-link>
+    <div class="home-content">
+      <h1>Welcome to Basketball Stats</h1>
+      <p>Track and analyze your favorite basketball teams and players.</p>
+      <div class="cta-buttons">
+        <v-btn
+          to="/register"
+          class="cta-button primary"
+          size="large"
+        >
+          Get Started
+        </v-btn>
+        <v-btn
+          to="/login"
+          class="cta-button secondary"
+          size="large"
+          variant="outlined"
+        >
+          Login
+        </v-btn>
+      </div>
     </div>
   </div>
 </template>
@@ -18,51 +33,91 @@ export default {
 
 <style scoped>
 .home {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 64px);
+  padding: var(--spacing-xl);
+  background-color: var(--color-bg-primary);
+}
+
+.home-content {
   max-width: 800px;
-  margin: 2rem auto;
-  padding: 2rem;
   text-align: center;
+  padding: var(--spacing-xl);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 4px 6px var(--shadow-color);
 }
 
 h1 {
   font-size: 2.5rem;
-  color: #1a1a1a;
-  margin-bottom: 1rem;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  font-weight: 600;
 }
 
 p {
   font-size: 1.2rem;
-  color: #666;
-  margin-bottom: 2rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xl);
+  line-height: 1.6;
 }
 
 .cta-buttons {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
   justify-content: center;
 }
 
 .cta-button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  text-decoration: none;
+  min-width: 160px;
   font-weight: 500;
-  transition: all 0.3s ease;
+  text-transform: none;
 }
 
-.cta-button:first-child {
-  background-color: #1a1a1a;
-  color: white;
+.cta-button.primary {
+  background-color: var(--color-button-bg) !important;
+  color: var(--color-button-text) !important;
+}
+
+.cta-button.primary:hover {
+  background-color: var(--color-button-bg-hover) !important;
+  color: var(--color-button-text-hover) !important;
 }
 
 .cta-button.secondary {
-  background-color: transparent;
-  color: #1a1a1a;
-  border: 2px solid #1a1a1a;
+  border-color: var(--color-button-text) !important;
+  color: var(--color-button-text) !important;
+  background-color: transparent !important;
 }
 
-.cta-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.cta-button.secondary:hover {
+  border-color: var(--color-button-text-hover) !important;
+  color: var(--color-button-text-hover) !important;
+  background-color: var(--color-button-bg) !important;
+}
+
+@media (max-width: 600px) {
+  .home-content {
+    padding: var(--spacing-lg);
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  p {
+    font-size: 1rem;
+  }
+
+  .cta-buttons {
+    flex-direction: column;
+  }
+
+  .cta-button {
+    width: 100%;
+  }
 }
 </style> 

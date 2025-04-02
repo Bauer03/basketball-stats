@@ -65,36 +65,99 @@ const handleLogout = async () => {
 <style scoped>
 .navbar {
   padding: 0.5rem 2rem !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  overflow: visible;
 }
 
 .search-container {
   width: 600px;
   margin: 0 auto;
   padding: 0 1rem;
+  position: relative;
+  z-index: 9999;
+  overflow: visible;
 }
 
+/* App bar styles */
+:deep(.v-app-bar) {
+  border-bottom: 1px solid var(--color-border-light);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  overflow: visible;
+}
+
+:deep(.v-app-bar__content) {
+  overflow: visible;
+  position: relative;
+  z-index: 9999;
+}
+
+:deep(.v-app-bar__prepend),
+:deep(.v-app-bar__append) {
+  overflow: visible;
+  position: relative;
+  z-index: 9999;
+}
+
+/* Button styles */
 .v-btn {
   transition: all 0.2s ease;
+  user-select: none;
+  background-color: var(--color-button-bg) !important;
+  color: var(--color-button-text) !important;
+  border-radius: var(--radius-md) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 100px !important;
+  padding: 0 16px !important;
 }
 
 .v-btn:hover {
-  opacity: 0.9;
+  background-color: var(--color-button-bg-hover) !important;
+  color: var(--color-button-text-hover) !important;
 }
 
 :deep(.v-btn--variant-text) {
-  color: #9333ea !important;
+  color: var(--color-button-text) !important;
+  background-color: var(--color-button-bg) !important;
+}
+
+:deep(.v-btn--variant-text:hover) {
+  color: var(--color-button-text-hover) !important;
+  background-color: var(--color-button-bg-hover) !important;
 }
 
 :deep(.v-btn--variant-outlined) {
-  border-color: #9333ea !important;
-  color: #9333ea !important;
+  border-color: var(--color-button-text) !important;
+  color: var(--color-button-text) !important;
+  background-color: var(--color-button-bg) !important;
 }
 
 :deep(.v-btn--variant-outlined:hover) {
-  background-color: rgba(147, 51, 234, 0.1) !important;
+  border-color: var(--color-button-text-hover) !important;
+  color: var(--color-button-text-hover) !important;
+  background-color: var(--color-button-bg-hover) !important;
 }
 
-:deep(.v-app-bar) {
-  border-bottom: 1px solid rgba(147, 51, 234, 0.2);
+:deep(.v-btn__content) {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+:deep(.v-btn__loader) {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
 }
 </style> 

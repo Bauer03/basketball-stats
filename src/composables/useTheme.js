@@ -33,6 +33,12 @@ export const themes = {
       'color-interactive-hover': '#c084fc', // primary-400
       'color-interactive-active': '#9333ea', // primary-600
       
+      // Button colors
+      'color-button-bg': 'rgba(147, 51, 234, 0.3)',
+      'color-button-bg-hover': 'rgba(147, 51, 234, 0.4)',
+      'color-button-text': '#e9d5ff',
+      'color-button-text-hover': '#ffffff',
+      
       // Border colors
       'color-border-light': 'rgba(147, 51, 234, 0.2)',
       'color-border-medium': 'rgba(147, 51, 234, 0.3)',
@@ -77,6 +83,12 @@ export const themes = {
       'color-interactive': '#9333ea',     // primary-600
       'color-interactive-hover': '#7e22ce', // primary-700
       'color-interactive-active': '#6b21a8', // primary-800
+      
+      // Button colors
+      'color-button-bg': 'rgba(147, 51, 234, 0.25)',
+      'color-button-bg-hover': 'rgba(147, 51, 234, 0.35)',
+      'color-button-text': '#9333ea',
+      'color-button-text-hover': '#7e22ce',
       
       // Border colors
       'color-border-light': 'rgba(147, 51, 234, 0.1)',
