@@ -135,21 +135,21 @@
           </div>
 
           <h3 class="text-h6 mb-4">Key Statistics</h3>
-          <div v-if="playerStats" class="stats-grid">
+          <div v-if="playerStats?.data?.[0]" class="stats-grid">
             <div class="stat-item">
-              <div class="stat-value">{{ playerStats.pts.toFixed(1) }}</div>
+              <div class="stat-value">{{ playerStats.data[0].pts?.toFixed(1) || '0.0' }}</div>
               <div class="stat-label">Points Per Game</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">{{ playerStats.ast.toFixed(1) }}</div>
+              <div class="stat-value">{{ playerStats.data[0].ast?.toFixed(1) || '0.0' }}</div>
               <div class="stat-label">Assists Per Game</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">{{ playerStats.reb.toFixed(1) }}</div>
+              <div class="stat-value">{{ playerStats.data[0].reb?.toFixed(1) || '0.0' }}</div>
               <div class="stat-label">Rebounds Per Game</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">{{ (playerStats.fg_pct * 100).toFixed(1) }}%</div>
+              <div class="stat-value">{{ playerStats.data[0].fg_pct ? (playerStats.data[0].fg_pct * 100).toFixed(1) : '0.0' }}%</div>
               <div class="stat-label">Field Goal %</div>
             </div>
           </div>
@@ -234,51 +234,51 @@
             <h3 class="text-h6 mb-4">Season Statistics</h3>
             <div class="stats-grid">
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.pts.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.pts?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Points Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.ast.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.ast?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Assists Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.reb.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.reb?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Rebounds Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.stl.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.stl?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Steals Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.blk.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.blk?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Blocks Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats ? (playerStats.fg_pct * 100).toFixed(1) : '0.0' }}%</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.fg_pct ? (playerStats.data[0].fg_pct * 100).toFixed(1) : '0.0' }}%</div>
                 <div class="stat-label">Field Goal %</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats ? (playerStats.fg3_pct * 100).toFixed(1) : '0.0' }}%</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.fg3_pct ? (playerStats.data[0].fg3_pct * 100).toFixed(1) : '0.0' }}%</div>
                 <div class="stat-label">3PT %</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats ? (playerStats.ft_pct * 100).toFixed(1) : '0.0' }}%</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.ft_pct ? (playerStats.data[0].ft_pct * 100).toFixed(1) : '0.0' }}%</div>
                 <div class="stat-label">Free Throw %</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.turnover.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.turnover?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Turnovers Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.pf.toFixed(1) || '0.0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.pf?.toFixed(1) || '0.0' }}</div>
                 <div class="stat-label">Personal Fouls Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.min || '0:00' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.min || '0:00' }}</div>
                 <div class="stat-label">Minutes Per Game</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ playerStats?.games_played || '0' }}</div>
+                <div class="stat-value">{{ playerStats?.data?.[0]?.games_played || '0' }}</div>
                 <div class="stat-label">Games Played</div>
               </div>
             </div>
@@ -325,10 +325,7 @@ const fetchPlayers = async () => {
     loading.value = true
     error.value = null
 
-    const options = {
-      teamId: selectedTeam.value,
-      position: selectedPosition.value
-    }
+    const options = {}
 
     const result = await playersStore.searchPlayers(searchQuery.value, options)
     players.value = result.data
@@ -339,10 +336,14 @@ const fetchPlayers = async () => {
       // Try to find LeBron James first
       const lebron = players.value.find(p => p.id === 237)
       if (lebron) {
-        await selectPlayer(lebron)
+        selectedPlayer.value = lebron // Set the player object directly
+        playerStats.value = null // Clear stats until they're loaded
+        await selectPlayer(lebron) // Load the details asynchronously
       } else {
         // If LeBron isn't in the results, select the first player
-        await selectPlayer(players.value[0])
+        selectedPlayer.value = players.value[0] // Set the player object directly
+        playerStats.value = null // Clear stats until they're loaded
+        await selectPlayer(players.value[0]) // Load the details asynchronously
       }
     } else if (players.value.length === 0) {
       // Clear selected player if no results
@@ -363,9 +364,7 @@ const loadMore = async () => {
   try {
     loading.value = true
     const options = {
-      teamId: selectedTeam.value,
-      position: selectedPosition.value,
-      cursor: playersStore.cursor
+      cursor: playersStore.nextCursor
     }
 
     const result = await playersStore.searchPlayers(searchQuery.value, options)
@@ -385,14 +384,11 @@ const selectPlayer = async (player) => {
   try {
     loadingDetails.value = true
     const result = await playersStore.fetchPlayerById(player.id)
-    console.log(result);  
     selectedPlayer.value = result.player
     playerStats.value = result.stats
-    console.log(playerStats.value);
   } catch (err) {
     console.error('Failed to fetch player details:', err)
-    // If the player exists in our local list, use that data
-    selectedPlayer.value = player
+    // Keep the basic player info we already have
     playerStats.value = null
   } finally {
     loadingDetails.value = false
