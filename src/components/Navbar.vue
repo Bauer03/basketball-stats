@@ -8,29 +8,9 @@
 
     <template v-if="authStore.isAuthenticated">
       <div class="search-container">
-        <SearchBar />
+        <SearchBar :show-by-default="shouldShowSearch" />
       </div>
-      <div class="d-flex gap-1">
-        <v-btn
-          color="#9333ea"
-          variant="text"
-          :loading="authStore.isLoading"
-          :disabled="authStore.isLoading"
-          @click="handleLogout"
-        >
-          Logout
-        </v-btn>
-        <v-btn 
-          color="#9333ea"
-          variant="text"
-          :loading="authStore.isLoading"
-          :disabled="authStore.isLoading"
-          @click="handleProfile"
-          class="material-symbols-outlined"
-        >
-          person
-        </v-btn>
-      </div>
+      <UserDropdown />
     </template>
 
     <template v-else>
@@ -55,11 +35,20 @@
 
 <script setup>
 import { useAuthStore } from '@/stores/authStore'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
+import { computed } from 'vue'
 import SearchBar from './search/SearchBar.vue'
+import UserDropdown from './UserDropdown.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+const shouldShowSearch = computed(() => {
+  // Don't show search results by default in profile, login, or register pages
+  const noSearchRoutes = ['/profile', '/login', '/register']
+  return !noSearchRoutes.includes(route.path)
+})
 
 const handleLogout = async () => {
   try {

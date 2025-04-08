@@ -86,12 +86,19 @@ import api from '@/api/axios'
 
 const emit = defineEmits(['search-select', 'update-grid'])
 
+const props = defineProps({
+  showByDefault: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const searchTypes = ['Teams', 'Players', 'Games']
 const currentTypeIndex = ref(0)
 const searchQuery = ref('')
 const displayQuery = ref('')
 const searchInput = ref(null)
-const showResults = ref(true)
+const showResults = ref(props.showByDefault)
 
 const { searchResults, isLoading: isSearching, debouncedSearch } = useSearch()
 
@@ -174,9 +181,11 @@ const handleSelect = (item) => {
 }
 
 const handleFocus = () => {
-  showResults.value = true
-  if (displayQuery.value) {
-    debouncedSearch(displayQuery.value, searchType.value)
+  if (displayQuery.value || props.showByDefault) {
+    showResults.value = true
+    if (displayQuery.value) {
+      debouncedSearch(displayQuery.value, searchType.value)
+    }
   }
 }
 
