@@ -8,11 +8,14 @@ export function useSearch() {
     games: []
   })
   
+  // Add debugging
+  console.log('useSearch initial searchResults:', searchResults.value)
+  
   const isLoading = ref(false)
   const searchTimeout = ref(null)
   const lastSearchTime = ref(0)
-  const MIN_TIME_BETWEEN_SEARCHES = 1000 // Minimum 1 second between API calls
-  const DEBOUNCE_DELAY = 500 // Wait 500ms after user stops typing
+  const MIN_TIME_BETWEEN_SEARCHES = 2000 // Increase to 2 seconds between API calls
+  const DEBOUNCE_DELAY = 1000 // Increase to 1 second after user stops typing
   
   const clearResults = () => {
     searchResults.value = {
@@ -46,7 +49,7 @@ export function useSearch() {
       const { data } = json || {}
       const mappedData = data?.map(team => ({
         id: team.id,
-        name: team.full_name,
+        name: team.full_name || team.name,
         abbreviation: team.abbreviation,
         conference: team.conference,
         division: team.division,
@@ -65,9 +68,7 @@ export function useSearch() {
     try {
       console.log('Searching players with query:', query)
       const params = new URLSearchParams({
-        'player-search': query || '',
-        'team_id': filters.team || '',
-        'position': filters.position || ''
+        'name-search': query || ''
       })
       
       const url = `${API_CONFIG.BASE_URL}/players?${params}`
@@ -101,30 +102,32 @@ export function useSearch() {
     }
   }
   
-  const searchGames = async (query, filters = {}) => {
+  const searchGames = async (filters = {}) => {
     try {
-      console.log('Searching games with query:', query)
-      const params = new URLSearchParams({
-        'game-search': query || '',
-        'start_date': filters.startDate || '',
-        'end_date': filters.endDate || '',
-        'team_ids': filters.teams?.join(',') || ''
-      })
+      const params = new URLSearchParams()
+      
+      // Add all possible parameters if they exist
+      if (filters.startDate) params.append('start_date', filters.startDate)
+      if (filters.endDate) params.append('end_date', filters.endDate)
+      if (filters.seasons?.length) {
+        filters.seasons.forEach(season => params.append('seasons[]', season))
+      }
+      if (filters.teams?.length) {
+        filters.teams.forEach(teamId => params.append('team_ids[]', teamId))
+      }
+      if (filters.cursor) params.append('cursor', filters.cursor)
+      if (filters.perPage) params.append('per_page', filters.perPage)
       
       const url = `${API_CONFIG.BASE_URL}/games?${params}`
-      console.log('Making request to:', url)
       
       const response = await fetch(url, API_CONFIG.DEFAULT_OPTIONS)
-      console.log('Games API response status:', response.status)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
       const json = await response.json()
-      console.log('Games API response:', json)
-      
-      const { data } = json || {}
+      const { data, meta } = json || {}
       const mappedData = data?.map(game => ({
         id: game.id,
         date: game.date,
@@ -133,34 +136,31 @@ export function useSearch() {
         home_team_score: game.home_team_score,
         visitor_team_score: game.visitor_team_score,
         status: game.status,
-        venue: game.venue
+        venue: game.venue,
+        season: game.season
       })) || []
       
-      console.log('Processed game results:', mappedData)
-      return mappedData
+      return { games: mappedData, meta }
     } catch (error) {
       console.error('Error searching games:', error)
-      return []
+      return { games: [], meta: null }
     }
   }
   
   const performSearch = async (query, type, conference = '', filters = {}) => {
-    console.log('Performing search:', { type, query, conference, filters })
-    
     // Check if enough time has passed since the last search
     const now = Date.now()
     const timeSinceLastSearch = now - lastSearchTime.value
     
     if (timeSinceLastSearch < MIN_TIME_BETWEEN_SEARCHES) {
-      console.log('Throttling search, scheduling for later...')
       setTimeout(() => {
         performSearch(query, type, conference, filters)
       }, MIN_TIME_BETWEEN_SEARCHES - timeSinceLastSearch)
       return
     }
     
+    // Only check for empty query for Teams and Players searches
     if (!query?.trim() && type !== 'Games') {
-      console.log('Empty query, clearing results')
       clearResults()
       return
     }
@@ -171,8 +171,9 @@ export function useSearch() {
     try {
       switch (type) {
         case 'Teams':
+          const teamsResults = await searchTeams(query, conference)
           searchResults.value = {
-            teams: await searchTeams(query, conference),
+            teams: [...teamsResults],
             players: [],
             games: []
           }
@@ -185,28 +186,32 @@ export function useSearch() {
           }
           break
         case 'Games':
+          // For Games, ignore the query parameter and only use filters
+          const { games, meta } = await searchGames(filters)
           searchResults.value = {
             teams: [],
             players: [],
-            games: await searchGames(query, filters)
+            games,
+            meta // Store the meta information for pagination
           }
           break
       }
-      console.log('Search completed, current results:', searchResults.value)
     } finally {
       isLoading.value = false
     }
   }
   
   const debouncedSearch = (query, type, delay = DEBOUNCE_DELAY, conference = '', filters = {}) => {
-    console.log('Debouncing search:', { type, query, delay, conference, filters })
+    // Use a longer delay for games search since it depends on user selections
+    const searchDelay = type === 'Games' ? 1000 : delay
+    
     if (searchTimeout.value) {
       clearTimeout(searchTimeout.value)
     }
     
     searchTimeout.value = setTimeout(() => {
       performSearch(query, type, conference, filters)
-    }, delay)
+    }, searchDelay)
   }
   
   // Initialize with empty results

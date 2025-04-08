@@ -7,7 +7,7 @@ async function searchPlayers(query = '', options = {}) {
       per_page: 25 // default page size
     })
     if (query) {
-      queryParams.append('player-search', query)
+      queryParams.append('name-search', query)
     }
     const url = `${API_BASE_URL}/players${queryParams.toString() ? '?' + queryParams : ''}`
     
@@ -34,15 +34,19 @@ async function searchPlayers(query = '', options = {}) {
 async function searchTeams(query = '', conference = '') {
   try {
     const queryParams = new URLSearchParams({
-      team_search: query
+      'team-search': query
     })
     if(conference) {
       queryParams.append('conference', conference)
     }
-    const url = `${API_BASE_URL}/players${queryParams.toString() ? '?' + queryParams : ''}`
+    const url = `${API_BASE_URL}/teams${queryParams.toString() ? '?' + queryParams : ''}`
     
     let token = localStorage.getItem('token')
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    })
 
     if (!response.ok) {
       throw new Error('API request failed')

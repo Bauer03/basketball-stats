@@ -10,24 +10,24 @@
       </button>
       <button 
         class="nav-link" 
-        :class="{ active: activeView === 'games' }"
-        @click="setActiveView('games')"
-      >
-        <span class="text-subtitle-1">Games</span>
-      </button>
-      <button 
-        class="nav-link" 
         :class="{ active: activeView === 'players' }"
         @click="setActiveView('players')"
       >
         <span class="text-subtitle-1">Players</span>
       </button>
+      <button 
+        class="nav-link" 
+        :class="{ active: activeView === 'games' }"
+        @click="setActiveView('games')"
+      >
+        <span class="text-subtitle-1">Games</span>
+      </button>
     </div>
 
     <div class="content-container">
       <Teams v-if="activeView === 'teams'" />
-      <Games v-if="activeView === 'games'" />
       <PlayersView v-if="activeView === 'players'" />
+      <Games v-if="activeView === 'games'" />
     </div>
   </div>
 </template>

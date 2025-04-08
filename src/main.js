@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useTheme } from './composables/useTheme'
+import { useAuthStore } from './stores/authStore'
 import './assets/styles/base.scss'
 
 // Vuetify
@@ -30,8 +31,12 @@ app.use(pinia)
 app.use(router)
 app.use(vuetify)
 
-// Initialize theme
+// Initialize theme and auth state
 const { initializeTheme } = useTheme()
 initializeTheme()
+
+// Initialize auth state
+const authStore = useAuthStore()
+authStore.initializeAuth()
 
 app.mount('#app') 

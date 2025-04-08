@@ -142,8 +142,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 
+const router = useRouter()
 const teams = ref([])
 const selectedTeam = ref(null)
 const teamDetails = ref(null)
@@ -151,6 +153,16 @@ const isLoading = ref(true)
 const isLoadingDetails = ref(false)
 const error = ref(null)
 const favoriteTeams = ref(new Set())
+
+const handleSearchSelection = async ({ type, item }) => {
+  if (type === 'Teams') {
+    await selectTeam(item)
+  } else if (type === 'Players') {
+    router.push('/players')
+  } else if (type === 'Games') {
+    router.push('/games')
+  }
+}
 
 const isFavorite = (teamId) => favoriteTeams.value.has(teamId)
 
@@ -254,7 +266,8 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  aspect-ratio: 1;
+  min-height: 120px;
+  width: 100%;
   position: relative;
   transform: translateY(0);
   user-select: none;
@@ -492,21 +505,22 @@ onMounted(() => {
   background: rgba(147, 51, 234, 0.05);
   border: 1px solid rgba(147, 51, 234, 0.2);
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1rem;
   animation: pulse 1.5s infinite;
-  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 120px;
+  width: 100%;
 }
 
 .skeleton-abbr {
-  height: 32px;
-  width: 60%;
+  height: 24px;
+  width: 40px;
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .skeleton-name {
@@ -519,7 +533,7 @@ onMounted(() => {
 
 .skeleton-division {
   height: 16px;
-  width: 40%;
+  width: 60%;
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
 }

@@ -10,10 +10,10 @@
           hide-details
           class="search-input"
           @keydown.tab.prevent="cycleSearchType"
-          @keydown.enter="handleSearch"
           @input="handleInput"
           @focus="handleFocus"
           @blur="handleBlur"
+          @keydown.enter.prevent="handleEnter"
           ref="searchInput"
           bg-color="surface"
           rounded="xl"
@@ -21,7 +21,6 @@
           :readonly="isSearching"
           @keydown.down.prevent="handleKeyDown"
           @keydown.up.prevent="handleKeyUp"
-          @keydown.enter.prevent="handleEnter"
           @keydown.esc.prevent="handleEscape"
         >
           <template v-slot:prepend-inner>
@@ -62,7 +61,7 @@
             :type="searchType"
             :is-loading="isSearching"
             :is-visible="true"
-            :teams="searchResults?.teams || []"
+            :teams="teamsData"
             :players="searchResults?.players || []"
             :games="searchResults?.games || []"
             @select="handleSelect"
@@ -83,8 +82,9 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useSearch } from '@/composables/useSearch'
 import SearchResults from './SearchResults.vue'
+import api from '@/api/axios'
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['search-select', 'update-grid'])
 
 const searchTypes = ['Teams', 'Players', 'Games']
 const currentTypeIndex = ref(0)
@@ -109,6 +109,15 @@ const hasResults = computed(() => {
     default:
       return false
   }
+})
+
+const teamsData = computed(() => {
+  const results = searchResults.value
+  console.log('Search results in SearchBar:', results)
+  const teamsProxy = results?.teams
+  const teams = teamsProxy ? [...teamsProxy] : []
+  console.log('Teams data being passed to SearchResults:', teams)
+  return teams
 })
 
 const placeholderText = computed(() => {
@@ -136,14 +145,30 @@ const handleInput = () => {
   debouncedSearch(displayQuery.value, searchType.value)
 }
 
-const handleSearch = () => {
-  if (!displayQuery.value.trim() || isSearching.value) return
-  showResults.value = true
-  debouncedSearch(displayQuery.value, searchType.value, 0)
+const handleEnter = async (e) => {
+  console.log('Enter key pressed')
+  e.preventDefault()
+  if (!displayQuery.value.trim() || isSearching.value) {
+    console.log('Search query empty or already searching')
+    return
+  }
+  
+  try {
+    console.log('Making API call for search:', displayQuery.value)
+    const response = await api.get('/players', {
+      params: {
+        'name-search': displayQuery.value
+      }
+    })
+    console.log('Search response:', response.data)
+    emit('update-grid', { type: searchType.value, results: response.data })
+  } catch (err) {
+    console.error('Failed to fetch players:', err)
+  }
 }
 
 const handleSelect = (item) => {
-  emit('select', { type: searchType.value, item })
+  emit('search-select', { type: searchType.value, item })
   showResults.value = false
   displayQuery.value = ''
 }
@@ -219,18 +244,14 @@ const handleKeyUp = () => {
   // Handle key up event
 }
 
-const handleEnter = () => {
-  // Handle enter key event
-}
-
 const handleEscape = () => {
   // Handle escape key event
 }
 
-// Remove debug watchers
-watch(searchResults, () => {}, { deep: true })
-watch(showResults, () => {})
-watch(isSearching, () => {})
+// Add a watcher for games data
+watch(() => searchResults.value?.games, (newGames) => {
+  console.log('Games data in SearchBar before passing to SearchResults:', newGames)
+}, { deep: true })
 
 onMounted(() => {
   // Focus the input immediately

@@ -1,5 +1,5 @@
 <template>
-  <div class="games-container">
+  <div class="games-container" @search-select="handleSearchSelection">
     <div class="games-header">
       <h1 class="text-h4 font-weight-bold mb-6">Games</h1>
     </div>
@@ -21,16 +21,15 @@
               <div class="skeleton-teams">
                 <div class="skeleton-team">
                   <div class="skeleton-team-info">
-                    <div class="skeleton-team-abbr"></div>
                     <div class="skeleton-team-name"></div>
+                    <div class="skeleton-team-abbr"></div>
                   </div>
                   <div class="skeleton-team-score"></div>
                 </div>
-                <div class="skeleton-vs"></div>
                 <div class="skeleton-team">
                   <div class="skeleton-team-info">
-                    <div class="skeleton-team-abbr"></div>
                     <div class="skeleton-team-name"></div>
+                    <div class="skeleton-team-abbr"></div>
                   </div>
                   <div class="skeleton-team-score"></div>
                 </div>
@@ -50,8 +49,12 @@
           >
             <v-card-item>
               <div class="game-header">
-                <div class="game-date">{{ formatDate(game.date) }}</div>
+                <div class="game-date">
+                  <v-icon size="small" class="mr-1">mdi-calendar</v-icon>
+                  {{ formatDate(game.date) }}
+                </div>
                 <div class="game-status" :class="game.status.toLowerCase()">
+                  <v-icon size="small" class="mr-1">{{ game.status === 'Final' ? 'mdi-whistle' : 'mdi-clock-outline' }}</v-icon>
                   {{ game.status }}{{ game.period > 4 ? ` (OT${game.period - 4})` : '' }}
                 </div>
               </div>
@@ -59,16 +62,21 @@
               <div class="game-teams">
                 <div class="team" :class="{ 'winner': game.home_team_score > game.visitor_team_score }">
                   <div class="team-info">
-                    <div class="team-abbr">{{ game.home_team.abbreviation }}</div>
-                    <div class="team-name">{{ game.home_team.name }}</div>
+                    <div class="team-name">{{ game.home_team.full_name }}</div>
+                    <div class="team-meta">
+                      <span class="team-abbr">{{ game.home_team.abbreviation }}</span>
+                      <span class="team-conference">{{ game.home_team.conference }}</span>
+                    </div>
                   </div>
                   <div class="team-score">{{ game.home_team_score }}</div>
                 </div>
-                <div class="vs">VS</div>
                 <div class="team" :class="{ 'winner': game.visitor_team_score > game.home_team_score }">
                   <div class="team-info">
-                    <div class="team-abbr">{{ game.visitor_team.abbreviation }}</div>
-                    <div class="team-name">{{ game.visitor_team.name }}</div>
+                    <div class="team-name">{{ game.visitor_team.full_name }}</div>
+                    <div class="team-meta">
+                      <span class="team-abbr">{{ game.visitor_team.abbreviation }}</span>
+                      <span class="team-conference">{{ game.visitor_team.conference }}</span>
+                    </div>
                   </div>
                   <div class="team-score">{{ game.visitor_team_score }}</div>
                 </div>
@@ -101,12 +109,17 @@
           <div class="skeleton-divider"></div>
           <div class="skeleton-teams">
             <div class="skeleton-team">
-              <div class="skeleton-team-name"></div>
+              <div class="skeleton-team-info">
+                <div class="skeleton-team-name"></div>
+                <div class="skeleton-team-abbr"></div>
+              </div>
               <div class="skeleton-team-score"></div>
             </div>
-            <div class="skeleton-vs"></div>
             <div class="skeleton-team">
-              <div class="skeleton-team-name"></div>
+              <div class="skeleton-team-info">
+                <div class="skeleton-team-name"></div>
+                <div class="skeleton-team-abbr"></div>
+              </div>
               <div class="skeleton-team-score"></div>
             </div>
           </div>
@@ -140,7 +153,6 @@
               </div>
               <div class="team-score">{{ selectedGame.home_team_score }}</div>
             </div>
-            <div class="vs">VS</div>
             <div class="team" :class="{ 'winner': selectedGame.visitor_team_score > selectedGame.home_team_score }">
               <div class="team-info">
                 <div class="team-abbr">{{ selectedGame.visitor_team.abbreviation }}</div>
@@ -195,7 +207,6 @@
                 <v-list-item-title>Status</v-list-item-title>
                 <v-list-item-subtitle>
                   {{ selectedGame.status }}
-                  {{ selectedGame.period > 4 ? ` (OT${selectedGame.period - 4})` : '' }}
                 </v-list-item-subtitle>
               </v-list-item>
 
@@ -263,6 +274,29 @@
               </div>
             </div>
           </div>
+
+          <v-divider class="my-4"></v-divider>
+
+          <div class="modal-section">
+            <h3 class="text-h6 mb-4">Player Stats</h3>
+            <v-data-table
+              :headers="[
+                { title: 'Player', key: 'player_name' },
+                { title: 'Team', key: 'team' },
+                { title: 'PTS', key: 'points' },
+                { title: 'REB', key: 'rebounds' },
+                { title: 'AST', key: 'assists' },
+                { title: 'STL', key: 'steals' },
+                { title: 'BLK', key: 'blocks' },
+                { title: 'FG', key: 'field_goals_made', format: value => `${value}/${value + field_goals_attempt}` },
+                { title: 'FG%', key: 'field_goal_percentage', format: value => `${(value * 100).toFixed(1)}%` },
+                { title: '3P', key: 'field_goals3_made', format: value => `${value}/${value + field_goals3_attempt}` },
+                { title: '3P%', key: 'field_goal3_percentage', format: value => `${(value * 100).toFixed(1)}%` }
+              ]"
+              :items="selectedGame.playerStats"
+              class="player-stats-table"
+            ></v-data-table>
+          </div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -271,8 +305,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 
+const router = useRouter()
 const games = ref([])
 const teams = ref([])
 const selectedGame = ref(null)
@@ -337,11 +373,11 @@ const fetchGames = async (cursor = null) => {
 
     console.log('Fetching games with params:', params)
     const response = await api.get('/games', { params })
-    console.log('Games API full response:', response)
     console.log('Games data:', response.data.data)
-    console.log('Games meta:', response.data.meta)
     
+    // Just use the data directly, no need to map it
     games.value = response.data.data
+
     hasNextPage.value = !!response.data.meta.next_cursor
     currentCursor.value = response.data.meta.next_cursor
 
@@ -374,6 +410,16 @@ const goBack = async () => {
 
 const selectGame = (game) => {
   selectedGame.value = game
+}
+
+const handleSearchSelection = async ({ type, item }) => {
+  if (type === 'Games') {
+    await selectGame(item)
+  } else if (type === 'Teams') {
+    router.push('/teams')
+  } else if (type === 'Players') {
+    router.push('/players')
+  }
 }
 
 onMounted(async () => {
@@ -413,23 +459,23 @@ onMounted(async () => {
 }
 
 .game-card {
-  background-color: rgba(147, 51, 234, 0.05);
-  border: 1px solid rgba(147, 51, 234, 0.2);
-  border-radius: 8px;
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.1);
   transition: all 0.2s ease;
-  transform: translateY(0);
-  will-change: transform;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
 }
 
 .game-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.2);
-  border-color: rgba(147, 51, 234, 0.4);
+  background: rgba(147, 51, 234, 0.1);
+  border-color: rgba(147, 51, 234, 0.2);
+  transform: translateY(-2px);
 }
 
 .game-card.selected {
-  background-color: rgba(147, 51, 234, 0.1);
-  border-color: #9333ea;
+  background: rgba(147, 51, 234, 0.15);
+  border-color: rgba(147, 51, 234, 0.3);
 }
 
 .game-details-column {
@@ -447,35 +493,30 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-}
-
-.game-date {
-  color: #e9d5ff;
   font-size: 0.875rem;
 }
 
+.game-date {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
 .game-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(147, 51, 234, 0.1);
+  color: var(--color-text);
   font-weight: 500;
-}
-
-.game-status.scheduled {
-  background-color: rgba(147, 51, 234, 0.1);
-  color: #9333ea;
-}
-
-.game-status.finished {
-  background-color: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
 }
 
 .game-teams {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
 }
 
 .team {
@@ -483,11 +524,12 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem;
-  border-radius: 4px;
+  width: 100%;
 }
 
 .team.winner {
-  background-color: rgba(147, 51, 234, 0.1);
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 6px;
 }
 
 .team-info {
@@ -496,27 +538,37 @@ onMounted(async () => {
   gap: 0.25rem;
 }
 
-.team-abbr {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #e9d5ff;
+.team-name {
+  font-weight: 500;
+  color: var(--color-text);
 }
 
-.team-name {
-  font-size: 0.875rem;
-  color: rgba(233, 213, 255, 0.7);
+.team-meta {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.team-abbr {
+  font-weight: 500;
 }
 
 .team-score {
-  color: #e9d5ff;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: bold;
+  min-width: 40px;
+  text-align: right;
 }
 
-.vs {
-  color: rgba(233, 213, 255, 0.5);
-  text-align: center;
-  font-size: 0.875rem;
+.game-status.final {
+  background: rgba(22, 163, 74, 0.1);
+  color: rgb(22, 163, 74);
+}
+
+.game-status.in_progress {
+  background: rgba(234, 179, 8, 0.1);
+  color: rgb(234, 179, 8);
 }
 
 .game-venue {
@@ -569,6 +621,9 @@ onMounted(async () => {
   border-radius: 8px;
   padding: 1.5rem;
   animation: pulse 1.5s infinite;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
 }
 
 .skeleton-header {
@@ -596,12 +651,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  margin: 1rem 0;
 }
 
 .skeleton-team {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
   padding: 0.5rem;
 }
 
@@ -611,33 +668,25 @@ onMounted(async () => {
   gap: 0.25rem;
 }
 
-.skeleton-team-abbr {
-  height: 20px;
-  width: 40px;
+.skeleton-team-name {
+  height: 16px;
+  width: 160px; /* Increased width since we have more horizontal space */
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
 }
 
-.skeleton-team-name {
-  height: 14px;
-  width: 120px;
+.skeleton-team-abbr {
+  height: 12px;
+  width: 80px;
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
 }
 
 .skeleton-team-score {
-  height: 20px;
-  width: 30px;
+  height: 32px;
+  width: 40px;
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
-}
-
-.skeleton-vs {
-  height: 16px;
-  width: 30px;
-  background: rgba(147, 51, 234, 0.1);
-  border-radius: 4px;
-  margin: 0 auto;
 }
 
 .skeleton-venue {
