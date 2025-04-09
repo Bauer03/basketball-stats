@@ -1,12 +1,5 @@
 <template>
   <div class="teams-container">
-    <div class="teams-header">
-      <h1 class="text-h4 font-weight-bold mb-6">Teams</h1>
-      <v-row>
-        <!-- Removed conference filter -->
-      </v-row>
-    </div>
-
     <div class="teams-layout">
       <!-- Teams Grid Column -->
       <div class="teams-grid-column">
@@ -86,10 +79,10 @@
               <h2>{{ selectedTeam.full_name }}</h2>
               <div class="conference-info">
                 <div class="conference-badge" :class="selectedTeam.conference.toLowerCase()">
-                  {{ selectedTeam.conference }}
+                  {{ selectedTeam.conference }} Conference
                 </div>
-                <div class="conference-badge rank-badge" v-if="teamDetails">
-                  Conference Rank: #{{ teamDetails.standings.conference_rank }}
+                <div class="division-badge">
+                  {{ selectedTeam.division }} Division
                 </div>
               </div>
             </div>
@@ -106,42 +99,129 @@
             </div>
           </div>
 
+          <v-btn
+            color="#e9d5ff"
+            block
+            class="details-btn mt-4"
+            @click="showTeamModal = true"
+            :loading="isLoadingDetails"
+            elevation="0"
+          >
+            View Detailed Stats
+          </v-btn>
+
           <v-divider class="my-4"></v-divider>
 
-          <div v-if="teamDetails" class="standings-grid">
-            <div class="standings-item">
-              <span class="label">Record</span>
-              <span class="value">{{ teamDetails.standings.wins }}-{{ teamDetails.standings.losses }}</span>
-            </div>
-            <div class="standings-item">
-              <span class="label">Division Rank</span>
-              <span class="value">{{ teamDetails.standings.division }} #{{ teamDetails.standings.division_rank }}</span>
-            </div>
-            <div class="standings-item">
-              <span class="label">Home Record</span>
-              <span class="value">{{ teamDetails.standings.home_record }}</span>
-            </div>
-            <div class="standings-item">
-              <span class="label">Road Record</span>
-              <span class="value">{{ teamDetails.standings.road_record }}</span>
-            </div>
-            <div class="standings-item">
-              <span class="label">Conference Record</span>
-              <span class="value">{{ teamDetails.standings.conference_record }}</span>
-            </div>
-            <div class="standings-item">
-              <span class="label">Division Record</span>
-              <span class="value">{{ teamDetails.standings.division_record }}</span>
+          <div v-if="teamDetails" class="standings-section">
+            <h3 class="text-h6 mb-4">Season {{ teamDetails.standings.season }} Stats</h3>
+            <div class="standings-grid">
+              <div class="standings-item">
+                <span class="value">{{ teamDetails.standings.wins }}-{{ teamDetails.standings.losses }}</span>
+                <span class="label">Record</span>
+              </div>
+              <div class="standings-item">
+                <span class="value">#{{ teamDetails.standings.conference_rank }}</span>
+                <span class="label">Conference Rank</span>
+              </div>
+              <div class="standings-item">
+                <span class="value">#{{ teamDetails.standings.division_rank }}</span>
+                <span class="label">Division Rank</span>
+              </div>
+              <div class="standings-item">
+                <span class="value">{{ teamDetails.standings.home_record }}</span>
+                <span class="label">Home Record</span>
+              </div>
+              <div class="standings-item">
+                <span class="value">{{ teamDetails.standings.road_record }}</span>
+                <span class="label">Road Record</span>
+              </div>
+              <div class="standings-item">
+                <span class="value">{{ teamDetails.standings.conference_record }}</span>
+                <span class="label">Conference Record</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Team Details Modal -->
+    <v-dialog
+      v-model="showTeamModal"
+      max-width="800"
+      scrollable
+    >
+      <v-card class="team-details-modal">
+        <v-card-title class="d-flex justify-space-between align-center pa-4">
+          <span>{{ selectedTeam?.full_name }} - Detailed Stats</span>
+          <v-btn icon="mdi-close" variant="text" @click="showTeamModal = false"></v-btn>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <div class="season-selector mb-6">
+            <v-select
+              v-model="selectedSeasons"
+              :items="availableSeasons"
+              label="Select Seasons"
+              variant="outlined"
+              density="comfortable"
+              multiple
+              chips
+              hide-details
+              @update:model-value="fetchDetailedStats"
+            ></v-select>
+          </div>
+
+          <div v-if="isLoadingDetails" class="loading-skeleton pa-4">
+            <div v-for="i in 6" :key="i" class="skeleton-stat-item">
+              <div class="skeleton-value"></div>
+              <div class="skeleton-label"></div>
+            </div>
+          </div>
+
+          <div v-else-if="detailedTeamStats" class="detailed-stats-grid">
+            <div class="stat-item">
+              <span class="stat-value">{{ detailedTeamStats.wins }}-{{ detailedTeamStats.losses }}</span>
+              <span class="stat-label">Record</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">#{{ detailedTeamStats.conference_rank }}</span>
+              <span class="stat-label">Conference Rank</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">#{{ detailedTeamStats.division_rank }}</span>
+              <span class="stat-label">Division Rank</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ detailedTeamStats.home_record }}</span>
+              <span class="stat-label">Home Record</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ detailedTeamStats.road_record }}</span>
+              <span class="stat-label">Road Record</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ detailedTeamStats.conference_record }}</span>
+              <span class="stat-label">Conference Record</span>
+            </div>
+          </div>
+          <div v-else class="no-stats-message">
+            <v-alert
+              type="info"
+              variant="tonal"
+              class="mt-4"
+            >
+              No statistics available for the selected seasons
+            </v-alert>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 
@@ -153,6 +233,10 @@ const isLoading = ref(true)
 const isLoadingDetails = ref(false)
 const error = ref(null)
 const favoriteTeams = ref(new Set())
+const showTeamModal = ref(false)
+const selectedSeasons = ref([])
+const availableSeasons = ref([2024, 2023, 2022, 2021, 2020])
+const detailedTeamStats = ref(null)
 
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Teams') {
@@ -200,11 +284,18 @@ const fetchTeams = async () => {
 
 const fetchTeamDetails = async (teamId) => {
   isLoadingDetails.value = true
+  console.log('Fetching initial team details:', { teamId })
+  
   try {
     const response = await api.get(`/teams/${teamId}`)
+    console.log('Initial team details API response:', response.data)
     teamDetails.value = response.data
   } catch (err) {
-    console.error('Failed to load team details:', err)
+    console.error('Failed to load initial team details:', {
+      error: err.message,
+      teamId,
+      status: err.response?.status
+    })
   } finally {
     isLoadingDetails.value = false
   }
@@ -214,6 +305,55 @@ const selectTeam = async (team) => {
   selectedTeam.value = team
   await fetchTeamDetails(team.id)
 }
+
+const fetchDetailedStats = async () => {
+  if (!selectedTeam.value || !selectedSeasons.value.length) {
+    console.log('Skipping team details fetch - no team or seasons selected', {
+      team: selectedTeam.value?.id,
+      seasons: selectedSeasons.value
+    })
+    return
+  }
+  
+  isLoadingDetails.value = true
+  console.log('Fetching team details:', {
+    teamId: selectedTeam.value.id,
+    seasons: selectedSeasons.value
+  })
+
+  try {
+    const params = new URLSearchParams()
+    selectedSeasons.value.forEach(season => params.append('seasons[]', season))
+    
+    const url = `/teams/${selectedTeam.value.id}?${params.toString()}`
+    console.log('Making request to:', url)
+    
+    const response = await api.get(url)
+    console.log('Team details API response:', response.data)
+    
+    detailedTeamStats.value = response.data.standings
+  } catch (err) {
+    console.error('Failed to fetch team details:', {
+      error: err.message,
+      teamId: selectedTeam.value.id,
+      seasons: selectedSeasons.value,
+      status: err.response?.status
+    })
+  } finally {
+    isLoadingDetails.value = false
+  }
+}
+
+// Reset detailed stats when team changes
+watch(() => selectedTeam.value, () => {
+  if (selectedTeam.value && teamDetails.value) {
+    detailedTeamStats.value = teamDetails.value.standings
+    selectedSeasons.value = [teamDetails.value.standings.season] // Set to current season
+  } else {
+    detailedTeamStats.value = null
+    selectedSeasons.value = [2024] // Reset to current season
+  }
+})
 
 // Load favorites from localStorage on mount
 onMounted(() => {
@@ -230,10 +370,6 @@ onMounted(() => {
   padding: 2rem;
   max-width: 1600px;
   margin: 0 auto;
-}
-
-.teams-header {
-  margin-bottom: 2rem;
 }
 
 .teams-layout {
@@ -259,14 +395,14 @@ onMounted(() => {
   background-color: rgba(147, 51, 234, 0.05);
   border: 1px solid rgba(147, 51, 234, 0.2);
   border-radius: 8px;
-  padding: 1rem;
+  padding: 1.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-height: 120px;
+  min-height: 140px;
   width: 100%;
   position: relative;
   transform: translateY(0);
@@ -302,7 +438,7 @@ onMounted(() => {
 
 .team-name {
   color: #e9d5ff;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 500;
 }
 
@@ -323,7 +459,7 @@ onMounted(() => {
 .team-details h2 {
   color: #e9d5ff;
   margin-bottom: 0.75rem;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
 }
 
 .team-stats {
@@ -419,7 +555,11 @@ onMounted(() => {
   color: #ce0000;
 }
 
-.rank-badge {
+.division-badge {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-weight: 500;
+  font-size: 0.875rem;
   background: rgba(147, 51, 234, 0.1);
   color: #9333ea;
 }
@@ -430,27 +570,35 @@ onMounted(() => {
   gap: 1rem;
 }
 
+.standings-section {
+  margin-top: 2rem;
+}
+
 .standings-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 
 .standings-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.standings-item .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #9333ea;
+  display: block;
+  margin-bottom: 0.25rem;
 }
 
 .standings-item .label {
   font-size: 0.875rem;
   color: rgba(233, 213, 255, 0.7);
-}
-
-.standings-item .value {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #e9d5ff;
 }
 
 .details-loading {
@@ -636,5 +784,105 @@ onMounted(() => {
   100% {
     opacity: 1;
   }
+}
+
+.team-details-modal {
+  background: #1a1a1a;
+  color: #e9d5ff;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.team-details-modal :deep(.v-card-title) {
+  border-bottom: 1px solid rgba(147, 51, 234, 0.2);
+}
+
+.detailed-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.loading-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.skeleton-stat-item {
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.skeleton-value {
+  height: 32px;
+  width: 60%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+
+.skeleton-label {
+  height: 16px;
+  width: 80%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+
+.details-btn {
+  height: 44px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  background-color: rgba(147, 51, 234) !important;
+}
+
+.details-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  background-color: rgba(147, 51, 234, 0.9) !important;
+}
+
+.season-selector {
+  max-width: 300px;
+}
+
+:deep(.v-list) {
+  background: transparent !important;
+  padding: 0;
+}
+
+:deep(.v-list-item) {
+  color: rgba(233, 213, 255, 0.7) !important;
+  padding: 0.75rem 0;
+}
+
+:deep(.v-list-item-title) {
+  color: #e9d5ff !important;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+:deep(.v-list-item-subtitle) {
+  color: rgba(233, 213, 255, 0.7) !important;
+  font-size: 1rem;
+}
+
+:deep(.v-list-item__prepend) {
+  margin-right: 1rem;
+}
+
+:deep(.v-icon) {
+  color: #9333ea !important;
 }
 </style> 

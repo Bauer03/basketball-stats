@@ -5,6 +5,7 @@
         to="/teams" 
         class="nav-link"
         :class="{ active: $route.path === '/teams' }"
+        @click="updateSearchType('teams')"
       >
         Teams
       </router-link>
@@ -12,6 +13,7 @@
         to="/players" 
         class="nav-link"
         :class="{ active: $route.path === '/players' }"
+        @click="updateSearchType('players')"
       >
         Players
       </router-link>
@@ -19,19 +21,23 @@
         to="/games" 
         class="nav-link"
         :class="{ active: $route.path === '/games' }"
+        @click="updateSearchType('games')"
       >
         Games
       </router-link>
     </nav>
 
     <div class="players-container">
+      <div class="players-header">
+        <h1 class="text-h4 font-weight-bold mb-6">Players</h1>
+      </div>
       <Players ref="playersComponent" @search-select="handleSearchSelection" @update-grid="handleSearchGridUpdate" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Players from '@/components/Players.vue'
 
 const playersComponent = ref(null)
@@ -45,6 +51,18 @@ const handleSearchGridUpdate = (data) => {
   // Forward the update-grid event to the Players component
   playersComponent.value?.handleSearchGridUpdate(data)
 }
+
+const updateSearchType = (type) => {
+  // Dispatch a custom event to update the search type
+  window.dispatchEvent(new CustomEvent('stats-view-changed', { 
+    detail: type 
+  }))
+}
+
+onMounted(() => {
+  // Set the search type to 'players' when the component is mounted
+  updateSearchType('players')
+})
 </script>
 
 <style scoped>

@@ -1,14 +1,10 @@
 <template>
   <div class="games-container" @search-select="handleSearchSelection">
-    <div class="games-header">
-      <h1 class="text-h4 font-weight-bold mb-6">Games</h1>
-    </div>
-
     <div v-if="error" class="mt-4">
       <v-alert type="error" text="Failed to load games. Please try again."></v-alert>
     </div>
 
-    <div v-else class="games-layout">
+    <div class="games-layout">
       <!-- Games Grid Column -->
       <div class="games-grid-column">
         <div v-if="isLoading" class="skeleton-container">
@@ -47,7 +43,7 @@
             @click="selectGame(game)"
             elevation="2"
           >
-            <v-card-item>
+            <v-card-text>
               <div class="game-header">
                 <div class="game-date">
                   <v-icon size="small" class="mr-1">mdi-calendar</v-icon>
@@ -81,7 +77,7 @@
                   <div class="team-score">{{ game.visitor_team_score }}</div>
                 </div>
               </div>
-            </v-card-item>
+            </v-card-text>
           </v-card>
         </div>
 
@@ -134,12 +130,37 @@
         </div>
 
         <div v-else-if="selectedGame" class="game-details">
-          <div class="details-header d-flex flex-column">
+          <div class="details-header d-flex flex-column gap-4">
             <div class="header-left">
-              <h2 class="text-h4">{{ formatDate(selectedGame.date) }}</h2>
+              <h2 class="text-h5">{{ formatDate(selectedGame.date) }}</h2>
             </div>
-            <v-btn color="primary" variant="outlined" @click="showGameDetails = true" class="mt-4">
-              View Full Details
+            <div class="d-flex gap-3" v-if="selectedGame.status !== 'Final'">
+              <v-btn
+                color="#9333ea"
+                class="details-btn flex-grow-1"
+                @click="showGameModal = true"
+                elevation="0"
+              >
+                View Detailed Stats
+              </v-btn>
+              <v-btn
+                color="#fbbf24"
+                class="bet-btn"
+                @click="handleBet"
+                elevation="0"
+              >
+                Bet
+              </v-btn>
+            </div>
+            <v-btn
+              v-else
+              color="#9333ea"
+              block
+              class="details-btn"
+              @click="showGameModal = true"
+              elevation="0"
+            >
+              View Detailed Stats
             </v-btn>
           </div>
 
@@ -181,11 +202,11 @@
     </div>
 
     <!-- Game Details Modal -->
-    <v-dialog v-model="showGameDetails" max-width="800">
+    <v-dialog v-model="showGameModal" max-width="800">
       <v-card v-if="selectedGame" class="game-details-modal">
         <v-card-title class="d-flex justify-space-between align-center pa-4">
           <span>Game Details</span>
-          <v-btn icon="mdi-close" variant="text" @click="showGameDetails = false"></v-btn>
+          <v-btn icon="mdi-close" variant="text" @click="showGameModal = false"></v-btn>
         </v-card-title>
         
         <v-card-text class="pa-4">
@@ -314,7 +335,7 @@ const teams = ref([])
 const selectedGame = ref(null)
 const isLoading = ref(true)  // Changed to true by default
 const error = ref(null)
-const showGameDetails = ref(false)
+const showGameModal = ref(false)
 
 // Date filters
 const startDate = ref('2024-10-01')  // Start of 2024-25 season
@@ -422,6 +443,10 @@ const handleSearchSelection = async ({ type, item }) => {
   }
 }
 
+const handleBet = () => {
+  alert('betting')
+}
+
 onMounted(async () => {
   await fetchTeams()
   await fetchGames()  // This will use the default filters
@@ -476,6 +501,10 @@ onMounted(async () => {
 .game-card.selected {
   background: rgba(147, 51, 234, 0.15);
   border-color: rgba(147, 51, 234, 0.3);
+}
+
+.gap-4 {
+  gap: 1rem;
 }
 
 .game-details-column {
@@ -541,6 +570,7 @@ onMounted(async () => {
 .team-name {
   font-weight: 500;
   color: var(--color-text);
+  font-size: 1.25rem;
 }
 
 .team-meta {
@@ -603,7 +633,7 @@ onMounted(async () => {
   color: rgba(233, 213, 255, 0.7);
 }
 
-/* Skeleton Loading Styles */
+/* Skeleton styling, can change */
 .skeleton-container {
   width: 100%;
 }
@@ -839,5 +869,54 @@ onMounted(async () => {
 
 :deep(.v-list-item-subtitle) {
   color: rgba(233, 213, 255, 0.7) !important;
+}
+
+.details-btn {
+  height: 44px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+}
+
+.details-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  background-color: rgba(147, 51, 234, 0.9) !important;
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.header-left h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #e9d5ff;
+  margin-bottom: 0.75rem;
+}
+
+.bet-btn {
+  min-width: 100px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  color: #000 !important;
+}
+
+.bet-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 </style> 

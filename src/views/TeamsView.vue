@@ -5,6 +5,7 @@
         to="/teams" 
         class="nav-link"
         :class="{ active: $route.path === '/teams' }"
+        @click="updateSearchType('teams')"
       >
         Teams
       </router-link>
@@ -12,6 +13,7 @@
         to="/players" 
         class="nav-link"
         :class="{ active: $route.path === '/players' }"
+        @click="updateSearchType('players')"
       >
         Players
       </router-link>
@@ -19,17 +21,23 @@
         to="/games" 
         class="nav-link"
         :class="{ active: $route.path === '/games' }"
+        @click="updateSearchType('games')"
       >
         Games
       </router-link>
     </nav>
 
-    <Teams ref="teamsComponent" @search-select="handleSearchSelection" />
+    <div class="teams-container">
+      <div class="teams-header">
+        <h1 class="text-h4 font-weight-bold mb-6">Teams</h1>
+      </div>
+      <Teams ref="teamsComponent" @search-select="handleSearchSelection" />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Teams from '@/components/Teams.vue'
 
 const teamsComponent = ref(null)
@@ -38,6 +46,18 @@ const handleSearchSelection = (selection) => {
   // Forward the search selection event to the Teams component
   teamsComponent.value?.handleSearchSelection(selection)
 }
+
+const updateSearchType = (type) => {
+  // Dispatch a custom event to update the search type
+  window.dispatchEvent(new CustomEvent('stats-view-changed', { 
+    detail: type 
+  }))
+}
+
+onMounted(() => {
+  // Set the search type to 'teams' when the component is mounted
+  updateSearchType('teams')
+})
 </script>
 
 <style scoped>
@@ -73,5 +93,15 @@ const handleSearchSelection = (selection) => {
 .nav-link.active {
   color: #e9d5ff;
   background: rgba(147, 51, 234, 0.2);
+}
+
+.teams-container {
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.teams-header {
+  margin-bottom: 2rem;
 }
 </style> 

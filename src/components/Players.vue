@@ -1,9 +1,5 @@
 <template>
   <div class="players-container">
-    <div class="players-header">
-      <h1 class="text-h4 font-weight-bold mb-6">Players</h1>
-    </div>
-
     <div class="players-layout">
       <!-- Players Grid Column -->
       <div class="players-grid-column">
@@ -56,21 +52,17 @@
             <span class="position-badge">{{ selectedPlayer.position }}</span>
             <span class="jersey-badge">#{{ selectedPlayer.jersey_number }}</span>
           </div>
-          <div class="player-meta mt-4">
-            <span>{{ selectedPlayer.height }} • {{ selectedPlayer.weight }} lbs</span>
-          </div>
         </div>
 
-        <v-divider class="my-6"></v-divider>
-
         <v-btn
-          color="primary"
+          color="#9333ea"
           block
-          class="mb-6"
+          class="details-btn"
           @click="showPlayerModal = true"
           :loading="isLoadingDetails"
+          elevation="0"
         >
-          See Detailed Stats
+          View Detailed Stats
         </v-btn>
 
         <div class="player-stats">
@@ -331,10 +323,6 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-.players-header {
-  margin-bottom: 2rem;
-}
-
 .players-layout {
   display: grid;
   grid-template-columns: 7fr 3fr;
@@ -382,7 +370,7 @@ onMounted(async () => {
 }
 
 .player-name {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
@@ -401,6 +389,9 @@ onMounted(async () => {
   padding: 2rem;
   height: fit-content;
   position: sticky;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   top: 2rem;
 }
 
@@ -577,5 +568,27 @@ onMounted(async () => {
   .players-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.details-btn {
+  height: 44px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+}
+
+.details-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  background-color: rgba(147, 51, 234, 0.9) !important;
+}
+
+.player-details-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e9d5ff;
+  margin-bottom: 0.75rem;
 }
 </style> 

@@ -180,57 +180,62 @@
         <v-card-text class="pa-6">
           <!-- Team Details -->
           <div v-if="selectedItem && type === 'Teams'" class="team-details">
-            <div class="conference-info mb-4">
-              <div class="conference-badge" :class="selectedItem.conference.toLowerCase()">
-                {{ selectedItem.conference }} Conference
-              </div>
-              <div class="division-badge">
-                {{ selectedItem.division }} Division
+            <div class="details-header mb-4">
+              <div class="badges-container">
+                <div class="conference-badge" :class="selectedItem.conference.toLowerCase()">
+                  {{ selectedItem.conference }} Conference
+                </div>
+                <div class="division-badge">
+                  {{ selectedItem.division }} Division
+                </div>
               </div>
             </div>
 
-            <div v-if="teamDetails" class="standings-grid">
-              <div class="standings-item">
+            <div v-if="teamDetails" class="stats-grid mb-6">
+              <div class="stat-item">
                 <span class="label">Record</span>
                 <span class="value">{{ teamDetails.standings.wins }}-{{ teamDetails.standings.losses }}</span>
               </div>
-              <div class="standings-item">
+              <div class="stat-item">
                 <span class="label">Conference Rank</span>
                 <span class="value">#{{ teamDetails.standings.conference_rank }}</span>
               </div>
-              <div class="standings-item">
+              <div class="stat-item">
                 <span class="label">Division Rank</span>
                 <span class="value">#{{ teamDetails.standings.division_rank }}</span>
               </div>
-              <div class="standings-item">
-                <span class="label">Home Record</span>
-                <span class="value">{{ teamDetails.standings.home_record }}</span>
-              </div>
-              <div class="standings-item">
-                <span class="label">Road Record</span>
-                <span class="value">{{ teamDetails.standings.road_record }}</span>
-              </div>
-              <div class="standings-item">
-                <span class="label">Last 10</span>
-                <span class="value">{{ teamDetails.standings.last_10 }}</span>
+              <div class="stat-item">
+                <span class="label">Win %</span>
+                <span class="value">{{ ((teamDetails.standings.wins / (teamDetails.standings.wins + teamDetails.standings.losses)) * 100).toFixed(1) }}%</span>
               </div>
             </div>
-            <div v-else class="d-flex justify-center my-4">
-              <v-progress-circular indeterminate color="primary"></v-progress-circular>
-            </div>
+
+            <v-btn
+              color="#9333ea"
+              block
+              class="details-btn"
+              @click="showTeamStatsModal = true"
+              :loading="isLoadingDetails"
+              elevation="0"
+            >
+              View Detailed Stats
+            </v-btn>
           </div>
 
           <!-- Player Details -->
           <div v-else-if="selectedItem && type === 'Players'" class="player-details">
-            <div class="player-header mb-4">
-              <div class="player-team">{{ selectedItem.team?.full_name }}</div>
-              <div class="player-meta">
-                <span class="position-badge">{{ selectedItem.position }}</span>
-                <span class="jersey-badge">#{{ selectedItem.jersey_number }}</span>
+            <div class="details-header mb-4">
+              <div class="badges-container">
+                <div class="team-badge">{{ selectedItem.team?.full_name }}</div>
+                <div class="position-badge">{{ selectedItem.position }}</div>
+                <div class="jersey-badge">#{{ selectedItem.jersey_number }}</div>
+              </div>
+              <div class="meta-info mt-4">
+                <span>{{ selectedItem.height }} • {{ selectedItem.weight }} lbs</span>
               </div>
             </div>
 
-            <div v-if="playerStats" class="stats-grid">
+            <div v-if="playerStats" class="stats-grid mb-6">
               <div class="stat-item">
                 <span class="label">Points</span>
                 <span class="value">{{ playerStats.pts?.toFixed(1) || '0.0' }}</span>
@@ -248,19 +253,29 @@
                 <span class="value">{{ (playerStats.fg_pct * 100)?.toFixed(1) || '0.0' }}%</span>
               </div>
             </div>
-            <div v-else class="d-flex justify-center my-4">
-              <v-progress-circular indeterminate color="primary"></v-progress-circular>
-            </div>
+
+            <v-btn
+              color="#9333ea"
+              block
+              class="details-btn"
+              @click="showPlayerStatsModal = true"
+              :loading="isLoadingDetails"
+              elevation="0"
+            >
+              View Detailed Stats
+            </v-btn>
           </div>
 
           <!-- Game Details -->
           <div v-else-if="selectedItem && type === 'Games'" class="game-details">
-            <div class="game-header mb-4">
-              <div class="game-date">{{ formatDate(selectedItem.date) }}</div>
-              <div class="game-status">{{ selectedItem.status }}</div>
+            <div class="details-header mb-4">
+              <div class="badges-container">
+                <div class="game-status-badge">{{ selectedItem.status }}</div>
+                <div class="game-date-badge">{{ formatDate(selectedItem.date) }}</div>
+              </div>
             </div>
 
-            <div class="teams-matchup">
+            <div class="teams-matchup mb-6">
               <div class="team home">
                 <div class="team-name">{{ selectedItem.home_team.full_name }}</div>
                 <div class="team-score">{{ selectedItem.home_team_score }}</div>
@@ -271,6 +286,84 @@
                 <div class="team-score">{{ selectedItem.visitor_team_score }}</div>
               </div>
             </div>
+
+            <v-btn
+              color="#9333ea"
+              block
+              class="details-btn"
+              @click="showGameStatsModal = true"
+              :loading="isLoadingDetails"
+              elevation="0"
+            >
+              View Detailed Stats
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
+    <!-- Team Stats Modal -->
+    <v-dialog v-model="showTeamStatsModal" max-width="800" scrollable>
+      <v-card class="details-modal">
+        <v-card-title class="d-flex justify-space-between align-center pa-4">
+          <span>{{ selectedItem?.full_name }} - Detailed Stats</span>
+          <v-btn icon="mdi-close" variant="text" @click="showTeamStatsModal = false"></v-btn>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <div class="season-selector mb-6">
+            <v-select
+              v-model="selectedSeason"
+              :items="availableSeasons"
+              label="Select Season"
+              variant="outlined"
+              density="comfortable"
+              bg-color="rgba(147, 51, 234, 0.1)"
+              @update:model-value="fetchTeamDetailedStats"
+            ></v-select>
+          </div>
+
+          <div v-if="isLoadingDetails" class="loading-skeleton pa-4">
+            <div v-for="i in 6" :key="i" class="skeleton-stat-item">
+              <div class="skeleton-value"></div>
+              <div class="skeleton-label"></div>
+            </div>
+          </div>
+
+          <div v-else-if="teamDetailedStats" class="detailed-stats-grid">
+            <div class="stat-item">
+              <span class="label">Home Record</span>
+              <span class="value">{{ teamDetailedStats.standings.home_record }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="label">Road Record</span>
+              <span class="value">{{ teamDetailedStats.standings.road_record }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="label">Last 10</span>
+              <span class="value">{{ teamDetailedStats.standings.last_10 }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="label">Streak</span>
+              <span class="value">{{ teamDetailedStats.standings.streak }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="label">Points Per Game</span>
+              <span class="value">{{ teamDetailedStats.stats?.points_per_game?.toFixed(1) || '0.0' }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="label">Points Allowed</span>
+              <span class="value">{{ teamDetailedStats.stats?.points_allowed_per_game?.toFixed(1) || '0.0' }}</span>
+            </div>
+          </div>
+          <div v-else class="no-stats-message">
+            <v-alert
+              type="info"
+              variant="tonal"
+              class="mt-4"
+            >
+              No statistics available for the selected season
+            </v-alert>
           </div>
         </v-card-text>
       </v-card>
@@ -490,6 +583,40 @@ const updateClickHandlers = () => {
 watch([() => props.teams, () => props.players, () => props.games], () => {
   nextTick(updateClickHandlers)
 })
+
+// Add new refs for modals and stats
+const showTeamStatsModal = ref(false);
+const showPlayerStatsModal = ref(false);
+const showGameStatsModal = ref(false);
+const selectedSeason = ref(2024);
+const availableSeasons = ref([2024, 2023, 2022]);
+const teamDetailedStats = ref(null);
+
+// Add new method for fetching detailed team stats
+const fetchTeamDetailedStats = async () => {
+  if (!selectedItem.value) return;
+  
+  isLoadingDetails.value = true;
+  try {
+    const response = await api.get(`/teams/${selectedItem.value.id}`, {
+      params: {
+        season: selectedSeason.value
+      }
+    });
+    teamDetailedStats.value = response.data;
+  } catch (error) {
+    console.error('Failed to fetch team detailed stats:', error);
+  } finally {
+    isLoadingDetails.value = false;
+  }
+};
+
+// Update watchers
+watch(showTeamStatsModal, async (newValue) => {
+  if (newValue && selectedItem.value) {
+    await fetchTeamDetailedStats();
+  }
+});
 </script>
 
 <style scoped>
@@ -701,48 +828,28 @@ watch([() => props.teams, () => props.players, () => props.games], () => {
 }
 
 .games-filters-row {
+  gap: 16px;
   margin: 0 -8px;
 }
 
-.games-filters-row .v-col {
-  padding: 0 8px;
+:deep(.v-col) {
+  padding: 8px;
 }
 
-.date-filter :deep(.v-field__input) {
-  min-height: 40px !important;
-  padding: 0 0 0 12px !important;
+/* Update existing styles for consistency */
+:deep(.v-text-field.date-filter .v-field) {
+  border-radius: 12px;
+  background: rgba(147, 51, 234, 0.1) !important;
+  border-color: rgba(147, 51, 234, 0.2) !important;
 }
 
-.date-filter :deep(.v-field) {
-  border-radius: 6px !important;
-  padding-right: 0 !important;
+:deep(.v-text-field.date-filter .v-field:hover) {
+  background: rgba(147, 51, 234, 0.15) !important;
 }
 
-.date-filter :deep(.v-field__outline) {
-  --v-field-border-opacity: 0.2;
-}
-
-.date-filter :deep(.v-field--variant-outlined .v-field__outline__start),
-.date-filter :deep(.v-field--variant-outlined .v-field__outline__end) {
-  border-color: rgba(147, 51, 234, var(--v-field-border-opacity));
-}
-
-.date-filter :deep(.v-field:hover .v-field__outline__start),
-.date-filter :deep(.v-field:hover .v-field__outline__end) {
-  border-color: rgba(147, 51, 234, 0.4);
-}
-
-.date-filter :deep(.v-field--focused .v-field__outline__start),
-.date-filter :deep(.v-field--focused .v-field__outline__end) {
-  border-color: rgba(147, 51, 234, 0.7);
-}
-
-.teams-filter :deep(.v-field) {
-  padding: 0 8px !important;
-}
-
-.teams-filter :deep(.v-field__input) {
-  padding: 8px !important;
+:deep(.v-text-field.date-filter .v-field--focused) {
+  background: rgba(147, 51, 234, 0.2) !important;
+  border-color: #9333ea !important;
 }
 
 .details-modal {
@@ -845,5 +952,60 @@ watch([() => props.teams, () => props.players, () => props.games], () => {
   color: #9333ea;
   font-weight: 500;
   font-size: 0.875rem;
+}
+
+:deep(.date-filter) {
+  .v-field__input {
+    color: #e9d5ff !important;
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .v-field__outline {
+    color: rgba(147, 51, 234, 0.2) !important;
+  }
+
+  .v-field__outline__start,
+  .v-field__outline__end,
+  .v-field__outline__notch {
+    border-color: rgba(147, 51, 234, 0.2) !important;
+  }
+
+  &:hover .v-field__outline {
+    color: rgba(147, 51, 234, 0.3) !important;
+  }
+
+  .v-field--focused .v-field__outline {
+    color: #9333ea !important;
+  }
+
+  .v-label {
+    color: rgba(233, 213, 255, 0.7) !important;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) hue-rotate(180deg) brightness(1.5);
+    opacity: 0.7;
+    cursor: pointer;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+}
+
+.details-btn {
+  height: 44px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+}
+
+.details-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  background-color: rgba(147, 51, 234, 0.9) !important;
 }
 </style> 
