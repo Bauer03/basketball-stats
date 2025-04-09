@@ -86,10 +86,23 @@ const handleProfile = () => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
+  width: 900px;
+  max-width: calc(100% - 400px);
   z-index: 9999;
   top: 50%;
   transform: translate(-50%, -50%);
+}
+
+/* Add media query for mobile responsiveness */
+@media (max-width: 1200px) {
+  .search-container {
+    max-width: calc(100% - 32px);
+    position: relative;
+    margin: 0 16px;
+    transform: none;
+    left: auto;
+    top: auto;
+  }
 }
 
 /* App bar styles */

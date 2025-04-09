@@ -11,12 +11,12 @@
         <v-btn
           icon
           v-bind="props"
-          size="large"
+          size="medium"
           class="user-btn"
           color="#9333ea"
           variant="text"
         >
-          <v-icon size="28">mdi-account-circle</v-icon>
+          <v-icon size="30">mdi-account-circle</v-icon>
         </v-btn>
       </template>
 
@@ -29,7 +29,7 @@
           to="/profile"
           prepend-icon="mdi-account"
           class="dropdown-item"
-          active-color="#9333ea"
+          color="#9333ea"
           rounded="lg"
         >
           <v-list-item-title>Profile</v-list-item-title>
@@ -39,7 +39,7 @@
           @click="handleLogout"
           prepend-icon="mdi-logout"
           class="dropdown-item"
-          active-color="#9333ea"
+          color="#9333ea"
           rounded="lg"
           :loading="authStore.isLoading"
         >

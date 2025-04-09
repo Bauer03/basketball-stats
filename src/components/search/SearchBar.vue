@@ -359,7 +359,7 @@ defineExpose({
 :deep(.v-field) {
   border-radius: var(--radius-full) !important;
   background: var(--searchbar-bg) !important;
-  padding-right: 100px !important;
+  /* padding-right: 100px !important; */
   transition: all 0.2s ease !important;
   position: relative;
   z-index: 0;

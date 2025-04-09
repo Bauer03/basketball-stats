@@ -828,26 +828,45 @@ watch(showTeamStatsModal, async (newValue) => {
 }
 
 .games-filters-row {
+  display: flex;
   gap: 16px;
-  margin: 0 -8px;
+  margin: 0;
+  flex-wrap: nowrap;
 }
 
 :deep(.v-col) {
   padding: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Media query for tablet and mobile */
+@media (max-width: 768px) {
+  .games-filters-row {
+    flex-direction: column;
+  }
+
+  :deep(.v-col) {
+    width: 100%;
+  }
 }
 
 /* Update existing styles for consistency */
-:deep(.v-text-field.date-filter .v-field) {
+:deep(.v-text-field.date-filter .v-field),
+:deep(.v-select.teams-filter .v-field) {
   border-radius: 12px;
   background: rgba(147, 51, 234, 0.1) !important;
   border-color: rgba(147, 51, 234, 0.2) !important;
+  height: 44px;
 }
 
-:deep(.v-text-field.date-filter .v-field:hover) {
+:deep(.v-text-field.date-filter .v-field:hover),
+:deep(.v-select.teams-filter .v-field:hover) {
   background: rgba(147, 51, 234, 0.15) !important;
 }
 
-:deep(.v-text-field.date-filter .v-field--focused) {
+:deep(.v-text-field.date-filter .v-field--focused),
+:deep(.v-select.teams-filter .v-field--focused) {
   background: rgba(147, 51, 234, 0.2) !important;
   border-color: #9333ea !important;
 }
