@@ -29,7 +29,17 @@
 
     <div class="players-container">
       <div class="players-header">
-        <h1 class="text-h4 font-weight-bold mb-6">Players</h1>
+        <div class="d-flex align-center justify-space-between mb-6">
+          <h1 class="text-h4 font-weight-bold">Players</h1>
+          <v-btn
+            color="#e9d5ff"
+            variant="outlined"
+            @click="loadFavoritePlayers"
+            :loading="loading"
+          >
+            Favorite Players
+          </v-btn>
+        </div>
       </div>
       <Players ref="playersComponent" @search-select="handleSearchSelection" @update-grid="handleSearchGridUpdate" />
     </div>
@@ -39,8 +49,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Players from '@/components/Players.vue'
+import api from '@/api/axios'
 
 const playersComponent = ref(null)
+const loading = ref(false)
 
 const handleSearchSelection = (selection) => {
   // Forward the search selection event to the Players component
@@ -50,6 +62,58 @@ const handleSearchSelection = (selection) => {
 const handleSearchGridUpdate = (data) => {
   // Forward the update-grid event to the Players component
   playersComponent.value?.handleSearchGridUpdate(data)
+}
+
+const loadFavoritePlayers = async () => {
+  loading.value = true
+  try {
+    console.log('Fetching favorite players...')
+    const response = await api.getFavoritePlayers()
+    console.log('Favorite players API response:', response)
+    console.log('Response data type:', typeof response.data)
+    console.log('Response data:', response.data)
+    
+    // Extract favorite player IDs from the response
+    let favoritePlayerIds
+    if (response.data && Array.isArray(response.data.favoritePlayers)) {
+      // The IDs come as strings, but we'll keep them as strings since that's what the API expects
+      favoritePlayerIds = response.data.favoritePlayers
+    } else if (Array.isArray(response.data)) {
+      favoritePlayerIds = response.data
+    } else {
+      console.error('Unexpected response data format:', response.data)
+      favoritePlayerIds = []
+    }
+    
+    console.log('Extracted favorite player IDs:', favoritePlayerIds)
+    
+    // Load the full player details for each favorite player
+    const playersPromises = favoritePlayerIds.map(id => {
+      console.log('Fetching details for player ID:', id)
+      return api.get(`/players/${id}`)
+    })
+    const playersResponses = await Promise.all(playersPromises)
+    console.log('Player details responses:', playersResponses)
+    
+    // Extract the player data from the nested structure
+    const favoritePlayers = playersResponses.map(response => {
+      // The player data is nested inside player.data
+      return response.data.player.data
+    })
+    console.log('Final favorite players data:', favoritePlayers)
+    
+    // Update the players component with the favorite players
+    playersComponent.value?.updatePlayers(favoritePlayers)
+  } catch (error) {
+    console.error('Failed to load favorite players:', error)
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 const updateSearchType = (type) => {

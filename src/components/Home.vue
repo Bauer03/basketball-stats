@@ -37,7 +37,7 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: calc(100vh - 64px);
-  padding: var(--spacing-xl);
+  /* padding: var(--spacing-xl); */
   background-color: var(--color-bg-primary);
 }
 

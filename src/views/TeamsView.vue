@@ -29,35 +29,128 @@
 
     <div class="teams-container">
       <div class="teams-header">
-        <h1 class="text-h4 font-weight-bold mb-6">Teams</h1>
+        <div class="d-flex align-center justify-space-between mb-6">
+          <h1 class="text-h4 font-weight-bold">Teams</h1>
+          <v-btn
+            color="#e9d5ff"
+            variant="outlined"
+            @click="loadFavoriteTeams"
+            :loading="loading"
+          >
+            Favorite Teams
+          </v-btn>
+        </div>
       </div>
-      <Teams ref="teamsComponent" @search-select="handleSearchSelection" />
+      <Teams 
+        ref="teamsComponent" 
+        @search-select="handleSearchSelection" 
+        @update-grid="handleSearchGridUpdate" 
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import Teams from '@/components/Teams.vue'
+import api from '@/api/axios'
 
 const teamsComponent = ref(null)
+const loading = ref(false)
 
-const handleSearchSelection = (selection) => {
-  // Forward the search selection event to the Teams component
-  teamsComponent.value?.handleSearchSelection(selection)
+// Define handlers
+const handleSearchSelection = (data) => {
+  console.log('TeamsView received search selection:', data)
+  if (teamsComponent.value) {
+    teamsComponent.value.handleSearchSelection(data)
+  }
+}
+
+const handleSearchGridUpdate = (data) => {
+  console.log('TeamsView received grid update:', data)
+  if (teamsComponent.value) {
+    teamsComponent.value.handleSearchGridUpdate(data)
+  }
+}
+
+// Event listeners setup and cleanup
+const setupEventListeners = () => {
+  window.addEventListener('search-grid-update', (event) => {
+    console.log('Received search-grid-update event:', event.detail)
+    handleSearchGridUpdate(event.detail)
+  })
+
+  window.addEventListener('search-selection', (event) => {
+    console.log('Received search-selection event:', event.detail)
+    handleSearchSelection(event.detail)
+  })
+}
+
+const cleanupEventListeners = () => {
+  window.removeEventListener('search-grid-update', handleSearchGridUpdate)
+  window.removeEventListener('search-selection', handleSearchSelection)
+}
+
+onMounted(() => {
+  updateSearchType('teams')
+  setupEventListeners()
+})
+
+onUnmounted(() => {
+  cleanupEventListeners()
+})
+
+const loadFavoriteTeams = async () => {
+  loading.value = true
+  try {
+    console.log('Fetching favorite teams...')
+    const response = await api.getFavoriteTeams()
+    console.log('Favorite teams API response:', response)
+    console.log('Response data type:', typeof response.data)
+    console.log('Response data:', response.data)
+    
+    let favoriteTeamIds
+    if (response.data && Array.isArray(response.data.favoriteTeams)) {
+      favoriteTeamIds = response.data.favoriteTeams
+    } else if (Array.isArray(response.data)) {
+      favoriteTeamIds = response.data
+    } else {
+      console.error('Unexpected response data format:', response.data)
+      favoriteTeamIds = []
+    }
+    
+    console.log('Extracted favorite team IDs:', favoriteTeamIds)
+    
+    const teamsPromises = favoriteTeamIds.map(id => {
+      console.log('Fetching details for team ID:', id)
+      return api.get(`/teams/${id}`)
+    })
+    const teamsResponses = await Promise.all(teamsPromises)
+    console.log('Team details responses:', teamsResponses)
+    
+    const favoriteTeams = teamsResponses.map(response => {
+      return response.data.team.data
+    })
+    console.log('Final favorite teams data:', favoriteTeams)
+    
+    teamsComponent.value?.updateTeams(favoriteTeams)
+  } catch (error) {
+    console.error('Failed to load favorite teams:', error)
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
+  } finally {
+    loading.value = false
+  }
 }
 
 const updateSearchType = (type) => {
-  // Dispatch a custom event to update the search type
   window.dispatchEvent(new CustomEvent('stats-view-changed', { 
     detail: type 
   }))
 }
-
-onMounted(() => {
-  // Set the search type to 'teams' when the component is mounted
-  updateSearchType('teams')
-})
 </script>
 
 <style scoped>

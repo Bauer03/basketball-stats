@@ -32,4 +32,30 @@ api.interceptors.response.use(
   }
 )
 
+// Favorite Teams
+api.favoriteTeam = async (teamId) => {
+  return await api.post('/favorite-teams', { team_id: teamId })
+}
+
+api.unfavoriteTeam = async (teamId) => {
+  return await api.delete(`/favorite-teams/${teamId}`)
+}
+
+api.getFavoriteTeams = async () => {
+  return await api.get('/favorite-teams')
+}
+
+// Favorite Players
+api.favoritePlayer = async (playerId) => {
+  return await api.post('/favorite-players', { player_id: playerId })
+}
+
+api.unfavoritePlayer = async (playerId) => {
+  return await api.delete(`/favorite-players/${playerId}`)
+}
+
+api.getFavoritePlayers = async () => {
+  return await api.get('/favorite-players')
+}
+
 export default api 

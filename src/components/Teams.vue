@@ -7,7 +7,13 @@
           <v-alert type="error" text="Failed to load teams. Please try again."></v-alert>
         </div>
 
-        <div class="teams-grid">
+        <div v-if="isInFavoritesView && teams.length === 0" class="empty-favorites-state">
+          <v-icon size="64" color="rgba(233, 213, 255, 0.7)" class="mb-4">mdi-star-outline</v-icon>
+          <h3 class="text-h5 mb-2">No Favorite Teams</h3>
+          <p class="text-body-1 text-medium-emphasis">Click the star icon on any team card to add it to your favorites.</p>
+        </div>
+
+        <div v-else class="teams-grid">
           <template v-if="isLoading">
             <div v-for="i in 16" :key="`team-skeleton-${i}`" class="skeleton-card">
               <div class="team-card-content">
@@ -89,7 +95,7 @@
             <div class="header-right">
               <v-icon
                 size="24"
-                class="favorite-btn"
+                class="favorite-btn-details"
                 @click="toggleFavorite(selectedTeam)"
                 :color="isFavorite(selectedTeam.id) ? '#e9d5ff' : 'grey-lighten-1'"
                 style="cursor: pointer"
@@ -221,7 +227,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 
@@ -237,6 +243,7 @@ const showTeamModal = ref(false)
 const selectedSeasons = ref([])
 const availableSeasons = ref([2024, 2023, 2022, 2021, 2020])
 const detailedTeamStats = ref(null)
+const isInFavoritesView = ref(false)
 
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Teams') {
@@ -250,14 +257,57 @@ const handleSearchSelection = async ({ type, item }) => {
 
 const isFavorite = (teamId) => favoriteTeams.value.has(teamId)
 
-const toggleFavorite = (team) => {
-  if (isFavorite(team.id)) {
-    favoriteTeams.value.delete(team.id)
-  } else {
-    favoriteTeams.value.add(team.id)
+const toggleFavorite = async (team) => {
+  try {
+    if (isFavorite(team.id)) {
+      await api.unfavoriteTeam(team.id)
+      favoriteTeams.value.delete(team.id)
+      
+      // If we're in favorites view, remove the team from the list
+      if (isInFavoritesView.value) {
+        teams.value = teams.value.filter(t => t.id !== team.id)
+      }
+    } else {
+      await api.favoriteTeam(team.id)
+      favoriteTeams.value.add(team.id)
+    }
+  } catch (err) {
+    console.error('Failed to toggle favorite:', err)
+    // Revert the local state if the API call fails
+    if (isFavorite(team.id)) {
+      favoriteTeams.value.delete(team.id)
+    } else {
+      favoriteTeams.value.add(team.id)
+    }
   }
-  // Save to localStorage
-  localStorage.setItem('favoriteTeams', JSON.stringify([...favoriteTeams.value]))
+}
+
+const loadFavoriteTeams = async () => {
+  try {
+    const response = await api.getFavoriteTeams()
+    const favoriteTeamsData = Array.isArray(response.data) ? response.data : []
+    favoriteTeams.value = new Set(favoriteTeamsData.map(team => team.id))
+  } catch (err) {
+    console.error('Failed to load favorite teams:', err)
+  }
+}
+
+const updateTeams = (newTeams) => {
+  console.log('Updating teams with:', newTeams)
+  teams.value = newTeams
+  isInFavoritesView.value = true
+  
+  // Set favorite status for all loaded teams
+  newTeams.forEach(team => {
+    if (team.id) {
+      favoriteTeams.value.add(team.id)
+    }
+  })
+  
+  // If we have teams, select the first one without opening modal
+  if (newTeams.length > 0) {
+    selectTeam(newTeams[0], false)
+  }
 }
 
 const filteredTeams = computed(() => teams.value)
@@ -265,9 +315,11 @@ const filteredTeams = computed(() => teams.value)
 const fetchTeams = async () => {
   isLoading.value = true
   error.value = null
+  isInFavoritesView.value = false
   
   try {
     const response = await api.get('/teams')
+    console.log('Fetched all teams:', response.data.data)
     teams.value = response.data.data
     // Find and select the LA Lakers by default
     const lakers = teams.value.find(team => team.full_name === 'Los Angeles Lakers')
@@ -301,9 +353,12 @@ const fetchTeamDetails = async (teamId) => {
   }
 }
 
-const selectTeam = async (team) => {
+const selectTeam = async (team, openModal = true) => {
   selectedTeam.value = team
   await fetchTeamDetails(team.id)
+  if (!openModal) {
+    showTeamModal.value = false
+  }
 }
 
 const fetchDetailedStats = async () => {
@@ -355,13 +410,54 @@ watch(() => selectedTeam.value, () => {
   }
 })
 
-// Load favorites from localStorage on mount
-onMounted(() => {
-  const savedFavorites = localStorage.getItem('favoriteTeams')
-  if (savedFavorites) {
-    favoriteTeams.value = new Set(JSON.parse(savedFavorites))
+// Add event listener for stats-view-changed
+const handleStatsViewChanged = (event) => {
+  const view = event.detail
+  if (view === 'teams') {
+    // Clear any existing search results
+    teams.value = []
+    isInFavoritesView.value = false
   }
+}
+
+onMounted(() => {
+  loadFavoriteTeams()
   fetchTeams()
+  window.addEventListener('stats-view-changed', handleStatsViewChanged)
+})
+
+// Clean up event listener
+onUnmounted(() => {
+  window.removeEventListener('stats-view-changed', handleStatsViewChanged)
+})
+
+const handleSearchGridUpdate = (data) => {
+  console.log('Teams view received search grid update:', data)
+  if (data.type === 'Teams' && Array.isArray(data.results)) {
+    // Only update if we have a search query
+    if (data.query && data.query.trim()) {
+      console.log('Updating teams grid with search results:', data.results)
+      teams.value = data.results
+      isInFavoritesView.value = false
+      
+      // If we have teams, select the first one
+      if (data.results.length > 0) {
+        console.log('Selecting first team from search results:', data.results[0])
+        selectTeam(data.results[0], false)
+      }
+    } else {
+      // If no search query, fetch all teams
+      console.log('No search query, fetching all teams')
+      fetchTeams()
+    }
+  }
+}
+
+// Make sure the component exposes the handler
+defineExpose({
+  handleSearchSelection,
+  handleSearchGridUpdate,
+  updateTeams
 })
 </script>
 
@@ -389,6 +485,38 @@ onMounted(() => {
   gap: 1.5rem;
   margin-bottom: 2rem;
   padding-top: 4px;
+}
+
+/* responsive grid layout */
+@media (max-width: 1400px) {
+  .teams-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .teams-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/*
+formatting for mobile, may add more stuff specifically here...
+*/
+ 
+@media (max-width: 950px) {
+  .teams-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .teams-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .team-details-column {
+    position: static;
+    margin-top: 2rem;
+  }
 }
 
 .team-card {
@@ -884,5 +1012,33 @@ onMounted(() => {
 
 :deep(.v-icon) {
   color: #9333ea !important;
+}
+
+.empty-favorites-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 400px;
+  padding: 2rem;
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 8px;
+  color: rgba(233, 213, 255, 0.7);
+}
+
+.empty-favorites-state h3 {
+  color: #e9d5ff;
+}
+
+.empty-favorites-state p {
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+.favorite-btn-details {
+  opacity: 1 !important;
+  position: static !important;
 }
 </style> 

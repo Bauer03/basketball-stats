@@ -14,14 +14,14 @@
           @focus="handleFocus"
           @blur="handleBlur"
           @keydown.enter.prevent="handleEnter"
+          @keydown.down.prevent="handleKeyDown"
+          @keydown.up.prevent="handleKeyUp"
+          @keydown.esc.prevent="handleEscape"
           ref="searchInput"
           bg-color="surface"
           rounded="xl"
           :style="{ '--v-theme-surface': 'rgba(147, 51, 234, 0.1)' }"
           :readonly="isSearching"
-          @keydown.down.prevent="handleKeyDown"
-          @keydown.up.prevent="handleKeyUp"
-          @keydown.esc.prevent="handleEscape"
         >
           <template v-slot:prepend-inner>
             <v-icon color="rgba(147, 51, 234, 0.7)">{{ isSearching ? 'mdi-loading mdi-spin' : 'mdi-magnify' }}</v-icon>
@@ -79,12 +79,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useSearch } from '@/composables/useSearch'
 import SearchResults from './SearchResults.vue'
 import api from '@/api/axios'
+import { useRouter } from 'vue-router'
+import debounce from 'lodash/debounce'
 
-const emit = defineEmits(['search-select', 'update-grid'])
+const emit = defineEmits(['search-select', 'update-grid', 'move-selection'])
 
 const props = defineProps({
   showByDefault: {
@@ -101,6 +103,7 @@ const searchInput = ref(null)
 const showResults = ref(props.showByDefault)
 
 const { searchResults, isLoading: isSearching, debouncedSearch } = useSearch()
+const router = useRouter()
 
 const searchType = computed(() => searchTypes[currentTypeIndex.value])
 const hasResults = computed(() => {
@@ -142,6 +145,26 @@ const placeholderText = computed(() => {
 
 const cycleSearchType = () => {
   currentTypeIndex.value = (currentTypeIndex.value + 1) % searchTypes.length
+  const newType = searchTypes[currentTypeIndex.value].toLowerCase()
+  
+  // Emit the stats-view-changed event with the new view type
+  window.dispatchEvent(new CustomEvent('stats-view-changed', { 
+    detail: newType
+  }))
+  
+  // Navigate to the appropriate route
+  switch (newType) {
+    case 'teams':
+      router.push('/teams')
+      break
+    case 'players':
+      router.push('/players')
+      break
+    case 'games':
+      router.push('/games')
+      break
+  }
+  
   if (displayQuery.value) {
     debouncedSearch(displayQuery.value, searchType.value)
   }
@@ -149,7 +172,6 @@ const cycleSearchType = () => {
 
 const handleInput = () => {
   showResults.value = true
-  debouncedSearch(displayQuery.value, searchType.value)
 }
 
 const handleEnter = async (e) => {
@@ -162,22 +184,69 @@ const handleEnter = async (e) => {
   
   try {
     console.log('Making API call for search:', displayQuery.value)
-    const response = await api.get('/players', {
-      params: {
-        'name-search': displayQuery.value
-      }
-    })
-    console.log('Search response:', response.data)
-    emit('update-grid', { type: searchType.value, results: response.data })
+    
+    // Include all current filters in the search
+    const filters = {
+      conference: currentConference.value,
+      ...currentDateRange.value,
+      teams: currentTeams.value,
+      team: currentPlayerTeam.value,
+      position: currentPosition.value
+    }
+    
+    // Wait for the search to complete and get the results
+    await debouncedSearch(displayQuery.value, searchType.value, 0, filters.conference, filters)
+    
+    // Ensure we have the latest results after the search completes
+    await nextTick()
+    
+    // Get the results based on search type
+    const results = searchType.value === 'Teams' ? searchResults.value?.teams :
+                   searchType.value === 'Players' ? searchResults.value?.players :
+                   searchResults.value?.games
+
+    if (!results) {
+      console.error('No results available after search')
+      return
+    }
+
+    console.log(`${searchType.value} search results received:`, results)
+    
+    const updateData = { 
+      type: searchType.value, 
+      results,
+      query: displayQuery.value 
+    }
+    
+    // Then navigate to the appropriate route if not already there
+    const route = searchType.value.toLowerCase()
+    if (router.currentRoute.value.path !== `/${route}`) {
+      await router.push(`/${route}`)
+      // Wait for navigation to complete
+      await nextTick()
+    }
+
+    // Now that we have results and are on the correct route, emit the event
+    console.log('Emitting search-grid-update event with:', updateData)
+    window.dispatchEvent(new CustomEvent('search-grid-update', { 
+      detail: updateData
+    }))
+
   } catch (err) {
-    console.error('Failed to fetch players:', err)
+    console.error('Failed to fetch search results:', err)
   }
 }
 
 const handleSelect = (item) => {
-  emit('search-select', { type: searchType.value, item })
-  showResults.value = false
+  const selectionData = { type: searchType.value, item }
+  console.log('Emitting search-selection event with:', selectionData)
+  window.dispatchEvent(new CustomEvent('search-selection', { 
+    detail: selectionData
+  }))
   displayQuery.value = ''
+  nextTick(() => {
+    showResults.value = false
+  })
 }
 
 const handleFocus = () => {
@@ -205,38 +274,28 @@ const handleBlur = (e) => {
 }
 
 const handleConferenceChange = (conference) => {
-  // Update the search with the new conference filter
-  if (searchType.value === 'Teams') {
-    debouncedSearch(displayQuery.value, searchType.value, 0, conference)
-  }
+  // Store the conference filter without triggering a search
+  currentConference.value = conference
 }
 
 const handleDateChange = ({ startDate, endDate }) => {
-  // Update the search with the new date filters
-  if (searchType.value === 'Games') {
-    debouncedSearch(displayQuery.value, searchType.value, 0, null, { startDate, endDate })
-  }
+  // Store the date filters without triggering a search
+  currentDateRange.value = { startDate, endDate }
 }
 
 const handleTeamChange = (teams) => {
-  // Update the search with the new team filters
-  if (searchType.value === 'Games') {
-    debouncedSearch(displayQuery.value, searchType.value, 0, null, { teams })
-  }
+  // Store the team filters without triggering a search
+  currentTeams.value = teams
 }
 
 const handlePlayerTeamChange = (team) => {
-  // Update the search with the new player team filter
-  if (searchType.value === 'Players') {
-    debouncedSearch(displayQuery.value, searchType.value, 0, null, { team })
-  }
+  // Store the player team filter without triggering a search
+  currentPlayerTeam.value = team
 }
 
 const handlePositionChange = (position) => {
-  // Update the search with the new position filter
-  if (searchType.value === 'Players') {
-    debouncedSearch(displayQuery.value, searchType.value, 0, null, { position })
-  }
+  // Store the position filter without triggering a search
+  currentPosition.value = position
 }
 
 const handleRefocus = () => {
@@ -245,56 +304,76 @@ const handleRefocus = () => {
   showResults.value = true
 }
 
-const handleKeyDown = () => {
-  // Handle key down event
-}
-
-const handleKeyUp = () => {
-  // Handle key up event
-}
-
 const handleEscape = () => {
-  // Handle escape key event
+  showResults.value = false
+  searchInput.value?.blur()
 }
 
-// Add a watcher for games data
+const handleKeyDown = (e) => {
+  // Prevent default tab behavior
+  if (e.key === 'Tab') {
+    e.preventDefault()
+    cycleSearchType()
+  }
+  // Handle arrow down
+  if (e.key === 'ArrowDown' && showResults.value) {
+    e.preventDefault()
+    emit('move-selection', 'down')
+  }
+}
+
+const handleKeyUp = (e) => {
+  // Handle arrow up
+  if (e.key === 'ArrowUp' && showResults.value) {
+    e.preventDefault()
+    emit('move-selection', 'up')
+  }
+}
+
+// debug, watching game data
 watch(() => searchResults.value?.games, (newGames) => {
   console.log('Games data in SearchBar before passing to SearchResults:', newGames)
 }, { deep: true })
 
-onMounted(() => {
-  // Focus the input immediately
+async function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Create a ref to store the event handler function
+const handleKeyPress = (event) => {
+  if (event.key === '/' && !event.target.matches('input, textarea')) {
+    event.preventDefault()
+    const input = searchInput.value?.$el?.querySelector('input')
+    if (input) {
+      input.focus()
+      showResults.value = true
+    }
+  }
+}
+
+// Register event listeners in onMounted
+onMounted(async () => {
+  // wait 150ms and then try focusing
+  await wait(150);
   const input = searchInput.value?.$el?.querySelector('input')
   if (input) {
     input.focus()
     showResults.value = true
   }
 
+  // Add event listeners
+  window.addEventListener('keydown', handleKeyPress)
+
   // Listen for view changes
   window.addEventListener('stats-view-changed', (event) => {
     const view = event.detail
-    const index = searchTypes.findIndex(type => type.toLowerCase() === view)
-    if (index !== -1) {
-      currentTypeIndex.value = index
-      // Clear the search query when switching views
-      displayQuery.value = ''
-      // Don't show results when switching views via tab clicks
-      showResults.value = false
-    }
+    debouncedViewChange(view)
   })
 })
 
-// Clean up event listener
+// Clean up event listeners in onUnmounted
 onUnmounted(() => {
-  window.removeEventListener('stats-view-changed', (event) => {
-    const view = event.detail
-    const index = searchTypes.findIndex(type => type.toLowerCase() === view)
-    if (index !== -1) {
-      currentTypeIndex.value = index
-      displayQuery.value = ''
-      showResults.value = false
-    }
-  })
+  window.removeEventListener('keydown', handleKeyPress)
 })
 
 // Expose search functionality to parent components
@@ -302,6 +381,24 @@ defineExpose({
   searchQuery,
   searchType
 })
+
+// Add debounced view change handler
+const debouncedViewChange = debounce((view) => {
+  const index = searchTypes.findIndex(type => type.toLowerCase() === view)
+  if (index !== -1) {
+    currentTypeIndex.value = index
+    if (displayQuery.value) {
+      debouncedSearch(displayQuery.value, searchType.value)
+    }
+  }
+}, 500)
+
+// Add refs for storing filter values
+const currentConference = ref(null)
+const currentDateRange = ref(null)
+const currentTeams = ref([])
+const currentPlayerTeam = ref(null)
+const currentPosition = ref(null)
 </script>
 
 <style scoped>
@@ -373,7 +470,7 @@ defineExpose({
 :deep(.v-field__input) {
   color: var(--color-text-primary) !important;
   padding: var(--spacing-md) var(--spacing-lg) !important;
-  padding-right: 96px !important;
+  padding-right: 96px;
   position: relative;
   z-index: 9999;
 }

@@ -325,30 +325,90 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/axios'
+import debounce from 'lodash/debounce'
 
+// Initialize all refs and state synchronously
 const router = useRouter()
 const games = ref([])
 const teams = ref([])
 const selectedGame = ref(null)
-const isLoading = ref(true)  // Changed to true by default
+const isLoading = ref(true)
 const error = ref(null)
 const showGameModal = ref(false)
-
-// Date filters
-const startDate = ref('2024-10-01')  // Start of 2024-25 season
-const endDate = ref('2025-06-30')    // End of 2024-25 season
-
-// Team filters
-const selectedTeams = ref([14])  // Lakers team ID is 14
-
-// Pagination
+const selectedTeams = ref([])
 const cursorStack = ref([])
 const currentCursor = ref(null)
 const hasNextPage = ref(false)
+const isInFavoritesView = ref(false)
 const perPage = 25
+
+// Initialize date filters synchronously
+const startDate = ref((() => {
+  const today = new Date()
+  const year = today.getMonth() < 9 ? today.getFullYear() - 1 : today.getFullYear()
+  return `${year}-10-01`
+})())
+
+const endDate = ref((() => {
+  return new Date().toISOString().split('T')[0]
+})())
+
+// Add event listener for stats-view-changed
+const handleStatsViewChanged = (event) => {
+  const view = event.detail
+  if (view === 'games') {
+    // Clear any existing search results
+    games.value = []
+    isInFavoritesView.value = false
+  }
+}
+
+// Add debounced initialization
+const debouncedInitialize = debounce(async () => {
+  try {
+    await fetchTeams()
+    await fetchGames()
+  } catch (err) {
+    console.error('Error during initialization:', err)
+    error.value = 'Failed to initialize component'
+  }
+}, 500)
+
+onMounted(() => {
+  debouncedInitialize()
+  window.addEventListener('stats-view-changed', handleStatsViewChanged)
+})
+
+// Clean up event listener
+onUnmounted(() => {
+  window.removeEventListener('stats-view-changed', handleStatsViewChanged)
+})
+
+// Rest of your existing functions
+const validateDates = (start, end) => {
+  try {
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      console.error('Invalid date format')
+      return false
+    }
+    
+    if (startDate > endDate) {
+      console.error('Start date cannot be after end date')
+      return false
+    }
+    
+    return true
+  } catch (err) {
+    console.error('Error validating dates:', err)
+    return false
+  }
+}
 
 const canGoBack = computed(() => cursorStack.value.length > 0)
 
@@ -375,40 +435,50 @@ const fetchGames = async (cursor = null) => {
   error.value = null
   
   try {
-    const params = {
+    if (!validateDates(startDate.value, endDate.value)) {
+      error.value = 'Invalid date range selected'
+      return
+    }
+
+    const params = new URLSearchParams({
       start_date: startDate.value,
       end_date: endDate.value,
       per_page: perPage
-    }
+    })
 
     if (cursor) {
-      params.cursor = cursor
+      params.append('cursor', cursor)
     }
 
-    // Always include Lakers if no other team is selected
     if (selectedTeams.value.length > 0) {
-      params.team_ids = selectedTeams.value
-    } else {
-      params.team_ids = [14]  // Lakers team ID
+      selectedTeams.value.forEach(id => {
+        params.append('team_ids[]', id.toString())
+      })
     }
 
-    console.log('Fetching games with params:', params)
+    const url = `${api.defaults.baseURL}/games?${params}`
+    console.log('📊 Games API Request URL:', url)
+    console.log('📊 Request parameters:', {
+      startDate: startDate.value,
+      endDate: endDate.value,
+      perPage,
+      cursor,
+      teamIds: selectedTeams.value
+    })
+
     const response = await api.get('/games', { params })
-    console.log('Games data:', response.data.data)
+    console.log('📊 Games response:', response.data)
     
-    // Just use the data directly, no need to map it
     games.value = response.data.data
+    hasNextPage.value = !!response.data.meta?.next_cursor
+    currentCursor.value = response.data.meta?.next_cursor
 
-    hasNextPage.value = !!response.data.meta.next_cursor
-    currentCursor.value = response.data.meta.next_cursor
-
-    // Select the first game by default
     if (games.value.length > 0 && !selectedGame.value) {
       selectGame(games.value[0])
     }
   } catch (err) {
     console.error('Error fetching games:', err)
-    error.value = err.message
+    error.value = 'Failed to load games. Please try again.'
   } finally {
     isLoading.value = false
   }
@@ -436,10 +506,32 @@ const selectGame = (game) => {
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Games') {
     await selectGame(item)
-  } else if (type === 'Teams') {
-    router.push('/teams')
   } else if (type === 'Players') {
     router.push('/players')
+  } else if (type === 'Teams') {
+    router.push('/teams')
+  }
+}
+
+const handleSearchGridUpdate = (data) => {
+  console.log('Games view received search grid update:', data)
+  if (data.type === 'Games' && Array.isArray(data.results)) {
+    // Only update if we have a search query
+    if (data.query && data.query.trim()) {
+      console.log('Updating games grid with search results:', data.results)
+      games.value = data.results
+      isInFavoritesView.value = false
+      
+      // If we have games, select the first one
+      if (data.results.length > 0) {
+        console.log('Selecting first game from search results:', data.results[0])
+        selectGame(data.results[0])
+      }
+    } else {
+      // If no search query, fetch all games
+      console.log('No search query, fetching games')
+      fetchGames()
+    }
   }
 }
 
@@ -447,10 +539,18 @@ const handleBet = () => {
   alert('betting')
 }
 
-onMounted(async () => {
-  await fetchTeams()
-  await fetchGames()  // This will use the default filters
-})
+const updateDateRange = async (newStartDate, newEndDate) => {
+  console.log('Updating date range:', { newStartDate, newEndDate })
+  
+  if (!validateDates(newStartDate, newEndDate)) {
+    error.value = 'Invalid date range selected'
+    return
+  }
+  
+  startDate.value = newStartDate
+  endDate.value = newEndDate
+  await fetchGames()
+}
 </script>
 
 <style scoped>

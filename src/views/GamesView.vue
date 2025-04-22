@@ -31,7 +31,7 @@
       <div class="games-header">
         <h1 class="text-h4 font-weight-bold mb-6">Games</h1>
       </div>
-      <Games ref="gamesComponent" @search-select="handleSearchSelection" />
+      <Games ref="gamesComponent" @search-select="handleSearchSelection" @update-grid="handleSearchGridUpdate" />
     </div>
   </div>
 </template>
@@ -45,6 +45,11 @@ const gamesComponent = ref(null)
 const handleSearchSelection = (selection) => {
   // Forward the search selection event to the Games component
   gamesComponent.value?.handleSearchSelection(selection)
+}
+
+const handleSearchGridUpdate = (data) => {
+  // Forward the update-grid event to the Games component
+  gamesComponent.value?.handleSearchGridUpdate(data)
 }
 
 const updateSearchType = (type) => {

@@ -39,7 +39,7 @@
           </button>
         </div>
         
-        <div class="pagination">
+        <div class="pagination"> <!-- buttons to switch back and forth between result pages, but might not work right now. -->
           <button 
             @click="goToPreviousPage" 
             :disabled="!canGoBack || loading"
@@ -165,6 +165,10 @@ export default {
 </script>
 
 <style scoped>
+#startDate, #endDate {
+  padding-right: 0px !important;
+}
+
 .filters {
   display: flex;
   flex-direction: column;

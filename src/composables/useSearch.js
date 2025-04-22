@@ -14,8 +14,8 @@ export function useSearch() {
   const isLoading = ref(false)
   const searchTimeout = ref(null)
   const lastSearchTime = ref(0)
-  const MIN_TIME_BETWEEN_SEARCHES = 2000 // Increase to 2 seconds between API calls
-  const DEBOUNCE_DELAY = 1000 // Increase to 1 second after user stops typing
+  const MIN_TIME_BETWEEN_SEARCHES = 2000 // debounce between api calls
+  const DEBOUNCE_DELAY = 1000 // time after user stops typing, before query is sent to server
   
   const clearResults = () => {
     searchResults.value = {
@@ -113,12 +113,35 @@ export function useSearch() {
         filters.seasons.forEach(season => params.append('seasons[]', season))
       }
       if (filters.teams?.length) {
-        filters.teams.forEach(teamId => params.append('team_ids[]', teamId))
+        // Handle multiple team IDs
+        const teamIds = filters.teams.map(team => {
+          if (typeof team === 'object' && team !== null) {
+            return team.id.toString()
+          }
+          return team.toString()
+        })
+        
+        // Add each team ID as a separate team_ids[] parameter
+        teamIds.forEach(id => {
+          params.append('team_ids[]', id)
+        })
+        
+        console.log('🔍 Adding team IDs to search:', teamIds)
       }
       if (filters.cursor) params.append('cursor', filters.cursor)
       if (filters.perPage) params.append('per_page', filters.perPage)
       
       const url = `${API_CONFIG.BASE_URL}/games?${params}`
+      console.log('🔍 Full search URL:', url)
+      console.log('🔍 Search parameters:', {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        seasons: filters.seasons,
+        teams: filters.teams,
+        teamIds: filters.teams?.map(t => typeof t === 'object' ? t.id : t),
+        cursor: filters.cursor,
+        perPage: filters.perPage
+      })
       
       const response = await fetch(url, API_CONFIG.DEFAULT_OPTIONS)
       
@@ -128,19 +151,9 @@ export function useSearch() {
       
       const json = await response.json()
       const { data, meta } = json || {}
-      const mappedData = data?.map(game => ({
-        id: game.id,
-        date: game.date,
-        home_team: game.home_team,
-        visitor_team: game.visitor_team,
-        home_team_score: game.home_team_score,
-        visitor_team_score: game.visitor_team_score,
-        status: game.status,
-        venue: game.venue,
-        season: game.season
-      })) || []
       
-      return { games: mappedData, meta }
+      // Return the data directly without mapping, to preserve all fields
+      return { games: data || [], meta }
     } catch (error) {
       console.error('Error searching games:', error)
       return { games: [], meta: null }

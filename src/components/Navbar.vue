@@ -5,12 +5,20 @@
         <span class="text-h6 font-weight-bold" style="color: #e9d5ff">NBA Stats</span>
       </router-link>
     </v-app-bar-title>
-
+    
     <template v-if="authStore.isAuthenticated">
       <div class="search-container">
-        <SearchBar :show-by-default="shouldShowSearch" />
+        <SearchBar ref="searchBar" :show-by-default="shouldShowSearch" />
       </div>
-      <UserDropdown />
+      <div class="d-flex align-center gap-4">
+        <v-btn
+          class="bet-button"
+          @click="handleBetClick"
+        >
+          Bet
+        </v-btn>
+        <UserDropdown />
+      </div>
     </template>
 
     <template v-else>
@@ -30,25 +38,84 @@
         Register
       </v-btn>
     </template>
+
+    <!-- Mobile Hamburger Menu -->
+    <div class="mobile-menu">
+      <v-menu
+        :close-on-content-click="true"
+        location="bottom end"
+        transition="scale-transition"
+      >
+        <template v-slot:activator="{ props }">
+          <v-btn
+            icon
+            v-bind="props"
+            size="medium"
+            class="hamburger-btn"
+            color="white"
+            variant="text"
+          >
+            <v-icon size="30">mdi-menu</v-icon>
+          </v-btn>
+        </template>
+
+        <v-list 
+          class="mobile-dropdown-list" 
+          bg-color="rgba(147, 51, 234, 0.1)"
+          elevation="0"
+        >
+          <v-list-item
+            to="/profile"
+            prepend-icon="mdi-account"
+            class="dropdown-item"
+            color="#9333ea"
+            rounded="lg"
+          >
+            <v-list-item-title>Profile</v-list-item-title>
+          </v-list-item>
+          
+          <v-list-item
+            @click="handleLogout"
+            prepend-icon="mdi-logout"
+            class="dropdown-item"
+            color="#9333ea"
+            rounded="lg"
+            :loading="authStore.isLoading"
+          >
+            <v-list-item-title>Logout</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+    </div>
   </v-app-bar>
 </template>
 
 <script setup>
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter, useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import SearchBar from './search/SearchBar.vue'
 import UserDropdown from './UserDropdown.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const searchBar = ref(null)
 
 const shouldShowSearch = computed(() => {
-  // Don't show search results by default in profile, login, or register pages
-  const noSearchRoutes = ['/profile', '/login', '/register']
-  return !noSearchRoutes.includes(route.path)
+  // Don't show search results by default in profile, login, register, or bet pages
+  const noSearchRoutes = ['/profile', '/login', '/register', '/bet']
+  return !noSearchRoutes.some(noSearchRoute => route.path.startsWith(noSearchRoute))
 })
+
+const handleBetClick = () => {
+  // Close search results if they're open
+  if (searchBar.value) {
+    searchBar.value.showResults = false
+  }
+  // Navigate to bet page
+  router.push('/bet')
+}
 
 const handleLogout = async () => {
   try {
@@ -69,6 +136,10 @@ const handleProfile = () => {
   gap: 1rem;
 }
 
+.gap-4 {
+  gap: 1.5rem;
+}
+
 .navbar {
   padding: 0.5rem 2rem !important;
   position: fixed;
@@ -86,8 +157,8 @@ const handleProfile = () => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: 900px;
-  max-width: calc(100% - 400px);
+  width: 1000px;
+  max-width: calc(100% - 300px);
   z-index: 9999;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -192,5 +263,58 @@ const handleProfile = () => {
   left: 50% !important;
   top: 50% !important;
   transform: translate(-50%, -50%) !important;
+}
+
+.desktop-menu {
+  display: block;
+}
+
+.mobile-menu {
+  display: none;
+}
+
+.hamburger-btn {
+  transition: all 0.2s ease;
+  background: none !important;
+}
+
+.hamburger-btn:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+  background: none !important;
+}
+
+:deep(.mobile-dropdown-list) {
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 200px;
+  padding: 4px;
+  margin-top: 4px;
+  background: rgba(147, 51, 234, 0.1) !important;
+}
+
+@media (max-width: 600px) {
+  .desktop-menu {
+    display: none;
+  }
+  
+  .mobile-menu {
+    display: block;
+  }
+}
+
+.bet-button {
+  min-width: 80px !important;
+  font-weight: 600;
+  background-color: rgba(255, 165, 0, 0.2) !important;
+  color: #FFA500 !important;
+  border: 1px solid rgba(255, 165, 0, 0.3) !important;
+}
+
+.bet-button:hover {
+  background-color: rgba(255, 165, 0, 0.3) !important;
+  color: #FFB52E !important;
+  border-color: rgba(255, 165, 0, 0.4) !important;
 }
 </style> 

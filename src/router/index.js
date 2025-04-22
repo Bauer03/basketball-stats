@@ -21,6 +21,14 @@ const router = createRouter({
       }
     },
     {
+      path: '/bet',
+      name: 'bet',
+      component: () => import('@/views/BettingView.vue'),
+      meta: {
+        requiresAuth: true
+      }
+    },
+    {
       path: '/teams',
       name: 'teams',
       component: () => import('@/views/TeamsView.vue'),

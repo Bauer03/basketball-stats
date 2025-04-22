@@ -44,7 +44,7 @@ const activeView = ref('teams')
 
 const setActiveView = (view) => {
   activeView.value = view
-  // Emit a custom event that will be caught by the parent component
+  // emit a custom event that will be caught by the parent component
   window.dispatchEvent(new CustomEvent('stats-view-changed', { detail: view }))
 }
 

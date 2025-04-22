@@ -80,7 +80,13 @@
         </div>
       </div>
       <div v-else-if="players.length" class="results-list">
-        <div v-for="(player, index) in players" :key="player.id" class="result-item player-item" @click="handleItemSelect(player)" :data-index="index">
+        <div 
+          v-for="(player, index) in players" 
+          :key="player.id" 
+          class="result-item player-item" 
+          @click.stop="handleItemSelect(player)" 
+          :data-index="index"
+        >
           <div class="player-avatar">
             <!-- Add player avatar here -->
           </div>
@@ -101,8 +107,8 @@
     <!-- Games Results -->
     <div v-else-if="type === 'Games'" class="results-section">
       <div class="filters" v-if="!isLoading">
-        <v-row class="games-filters-row">
-          <v-col cols="12" sm="4">
+        <v-row class="date-filters-row">
+          <v-col cols="12" sm="6">
             <v-text-field
               v-model="startDate"
               label="Start Date"
@@ -111,11 +117,10 @@
               hide-details
               bg-color="rgba(147, 51, 234, 0.1)"
               class="date-filter"
-              @update:model-value="handleDateChange"
               variant="outlined"
             ></v-text-field>
           </v-col>
-          <v-col cols="12" sm="4">
+          <v-col cols="12" sm="6">
             <v-text-field
               v-model="endDate"
               label="End Date"
@@ -124,11 +129,12 @@
               hide-details
               bg-color="rgba(147, 51, 234, 0.1)"
               class="date-filter"
-              @update:model-value="handleDateChange"
               variant="outlined"
             ></v-text-field>
           </v-col>
-          <v-col cols="12" sm="4">
+        </v-row>
+        <v-row class="teams-filter-row mt-4">
+          <v-col cols="12">
             <v-select
               v-model="selectedTeams"
               :items="teams"
@@ -140,11 +146,22 @@
               hide-details
               multiple
               chips
+              closable-chips
               bg-color="rgba(147, 51, 234, 0.1)"
               class="teams-filter"
               @update:model-value="handleTeamChange"
-              return-object
-            ></v-select>
+            >
+              <template v-slot:chip="{ props, item }">
+                <v-chip
+                  v-bind="props"
+                  :text="item.raw.full_name"
+                  class="team-chip"
+                  closable
+                >
+                  {{ item.raw.full_name }}
+                </v-chip>
+              </template>
+            </v-select>
           </v-col>
         </v-row>
       </div>
@@ -169,148 +186,15 @@
       </div>
     </div>
 
-    <!-- Details Modal -->
-    <v-dialog v-model="showModal" max-width="800">
-      <v-card class="details-modal">
+    <!-- Team Stats Modal -->
+    <v-dialog v-model="showTeamStatsModal" max-width="800" scrollable>
+      <v-card class="details-modal" v-if="selectedItem">
         <v-card-title class="d-flex justify-space-between align-center pa-6">
-          <span class="text-h5">{{ modalTitle }}</span>
-          <v-btn icon="mdi-close" variant="text" @click="showModal = false"></v-btn>
+          <span class="text-h5">{{ selectedItem.full_name }} - Detailed Stats</span>
+          <v-btn icon="mdi-close" variant="text" @click="showTeamStatsModal = false"></v-btn>
         </v-card-title>
         
         <v-card-text class="pa-6">
-          <!-- Team Details -->
-          <div v-if="selectedItem && type === 'Teams'" class="team-details">
-            <div class="details-header mb-4">
-              <div class="badges-container">
-                <div class="conference-badge" :class="selectedItem.conference.toLowerCase()">
-                  {{ selectedItem.conference }} Conference
-                </div>
-                <div class="division-badge">
-                  {{ selectedItem.division }} Division
-                </div>
-              </div>
-            </div>
-
-            <div v-if="teamDetails" class="stats-grid mb-6">
-              <div class="stat-item">
-                <span class="label">Record</span>
-                <span class="value">{{ teamDetails.standings.wins }}-{{ teamDetails.standings.losses }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">Conference Rank</span>
-                <span class="value">#{{ teamDetails.standings.conference_rank }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">Division Rank</span>
-                <span class="value">#{{ teamDetails.standings.division_rank }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">Win %</span>
-                <span class="value">{{ ((teamDetails.standings.wins / (teamDetails.standings.wins + teamDetails.standings.losses)) * 100).toFixed(1) }}%</span>
-              </div>
-            </div>
-
-            <v-btn
-              color="#9333ea"
-              block
-              class="details-btn"
-              @click="showTeamStatsModal = true"
-              :loading="isLoadingDetails"
-              elevation="0"
-            >
-              View Detailed Stats
-            </v-btn>
-          </div>
-
-          <!-- Player Details -->
-          <div v-else-if="selectedItem && type === 'Players'" class="player-details">
-            <div class="details-header mb-4">
-              <div class="badges-container">
-                <div class="team-badge">{{ selectedItem.team?.full_name }}</div>
-                <div class="position-badge">{{ selectedItem.position }}</div>
-                <div class="jersey-badge">#{{ selectedItem.jersey_number }}</div>
-              </div>
-              <div class="meta-info mt-4">
-                <span>{{ selectedItem.height }} • {{ selectedItem.weight }} lbs</span>
-              </div>
-            </div>
-
-            <div v-if="playerStats" class="stats-grid mb-6">
-              <div class="stat-item">
-                <span class="label">Points</span>
-                <span class="value">{{ playerStats.pts?.toFixed(1) || '0.0' }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">Rebounds</span>
-                <span class="value">{{ playerStats.reb?.toFixed(1) || '0.0' }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">Assists</span>
-                <span class="value">{{ playerStats.ast?.toFixed(1) || '0.0' }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">FG%</span>
-                <span class="value">{{ (playerStats.fg_pct * 100)?.toFixed(1) || '0.0' }}%</span>
-              </div>
-            </div>
-
-            <v-btn
-              color="#9333ea"
-              block
-              class="details-btn"
-              @click="showPlayerStatsModal = true"
-              :loading="isLoadingDetails"
-              elevation="0"
-            >
-              View Detailed Stats
-            </v-btn>
-          </div>
-
-          <!-- Game Details -->
-          <div v-else-if="selectedItem && type === 'Games'" class="game-details">
-            <div class="details-header mb-4">
-              <div class="badges-container">
-                <div class="game-status-badge">{{ selectedItem.status }}</div>
-                <div class="game-date-badge">{{ formatDate(selectedItem.date) }}</div>
-              </div>
-            </div>
-
-            <div class="teams-matchup mb-6">
-              <div class="team home">
-                <div class="team-name">{{ selectedItem.home_team.full_name }}</div>
-                <div class="team-score">{{ selectedItem.home_team_score }}</div>
-              </div>
-              <div class="vs">VS</div>
-              <div class="team away">
-                <div class="team-name">{{ selectedItem.visitor_team.full_name }}</div>
-                <div class="team-score">{{ selectedItem.visitor_team_score }}</div>
-              </div>
-            </div>
-
-            <v-btn
-              color="#9333ea"
-              block
-              class="details-btn"
-              @click="showGameStatsModal = true"
-              :loading="isLoadingDetails"
-              elevation="0"
-            >
-              View Detailed Stats
-            </v-btn>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
-
-    <!-- Team Stats Modal -->
-    <v-dialog v-model="showTeamStatsModal" max-width="800" scrollable>
-      <v-card class="details-modal">
-        <v-card-title class="d-flex justify-space-between align-center pa-4">
-          <span>{{ selectedItem?.full_name }} - Detailed Stats</span>
-          <v-btn icon="mdi-close" variant="text" @click="showTeamStatsModal = false"></v-btn>
-        </v-card-title>
-
-        <v-card-text class="pa-4">
           <div class="season-selector mb-6">
             <v-select
               v-model="selectedSeason"
@@ -323,7 +207,7 @@
             ></v-select>
           </div>
 
-          <div v-if="isLoadingDetails" class="loading-skeleton pa-4">
+          <div v-if="isLoadingDetails" class="loading-skeleton">
             <div v-for="i in 6" :key="i" class="skeleton-stat-item">
               <div class="skeleton-value"></div>
               <div class="skeleton-label"></div>
@@ -357,11 +241,7 @@
             </div>
           </div>
           <div v-else class="no-stats-message">
-            <v-alert
-              type="info"
-              variant="tonal"
-              class="mt-4"
-            >
+            <v-alert type="info" variant="tonal" class="mt-4">
               No statistics available for the selected season
             </v-alert>
           </div>
@@ -372,12 +252,16 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, onMounted, watch, computed, nextTick } from 'vue'
+import { defineProps, defineEmits, ref, onMounted, watch, computed, nextTick, onUnmounted } from 'vue'
 import api from '@/api/axios'
 
 const selectedConference = ref('All')
-const startDate = ref('')
-const endDate = ref('')
+const startDate = ref(new Date().toISOString().split('T')[0])
+const endDate = ref((() => {
+  const date = new Date()
+  date.setDate(date.getDate() + 7) // Add 7 days to today
+  return date.toISOString().split('T')[0]
+})())
 const selectedTeams = ref([])
 const selectedTeam = ref(null)
 const selectedPosition = ref(null)
@@ -400,12 +284,41 @@ const handleConferenceChange = (value) => {
 }
 
 const handleDateChange = () => {
-  emit('date-change', { startDate: startDate.value, endDate: endDate.value })
-  emit('refocus')
+  if (!startDate.value || !endDate.value) return
+
+  try {
+    const start = new Date(startDate.value)
+    const end = new Date(endDate.value)
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.error('Invalid date format')
+      return
+    }
+
+    const formattedStartDate = start.toISOString().split('T')[0]
+    const formattedEndDate = end.toISOString().split('T')[0]
+
+    console.log('Emitting date change:', { startDate: formattedStartDate, endDate: formattedEndDate })
+    
+    emit('date-change', { 
+      startDate: formattedStartDate, 
+      endDate: formattedEndDate 
+    })
+    emit('refocus')
+  } catch (err) {
+    console.error('Error formatting dates:', err)
+  }
 }
 
 const handleTeamChange = (value) => {
-  emit('team-change', value)
+  const teamIds = Array.isArray(value) 
+    ? value.map(team => typeof team === 'object' ? team.id : team)
+    : []
+  
+  console.log('Selected teams:', value)
+  console.log('Emitting team IDs:', teamIds)
+  
+  emit('team-change', teamIds)
   emit('refocus')
 }
 
@@ -482,7 +395,7 @@ watch(() => props.type, async (newType) => {
   }
 }, { immediate: true })
 
-// Add watchers to debug data
+// Update watchers to debug data
 watch(() => props.games, (newGames) => {
   console.log('Games data in SearchResults:', newGames)
 }, { deep: true })
@@ -491,108 +404,30 @@ watch(() => props.teams, (newTeams) => {
   console.log('Teams data in SearchResults:', newTeams)
 }, { deep: true })
 
-const showModal = ref(false)
+const showTeamStatsModal = ref(false)
 const selectedItem = ref(null)
 const teamDetails = ref(null)
-const playerStats = ref(null)
 const isLoadingDetails = ref(false)
 
-const modalTitle = computed(() => {
-  if (!selectedItem.value) return ''
-  
-  switch (props.type) {
-    case 'Teams':
-      return selectedItem.value.full_name
-    case 'Players':
-      return `${selectedItem.value.first_name} ${selectedItem.value.last_name}`
-    case 'Games':
-      return `${selectedItem.value.home_team.abbreviation} vs ${selectedItem.value.visitor_team.abbreviation}`
-    default:
-      return ''
+const CURRENT_SEASON = 2024
+const NBA_START_YEAR = 1946
+
+// Generate available seasons
+const availableSeasons = computed(() => {
+  const seasons = []
+  for (let year = CURRENT_SEASON; year >= NBA_START_YEAR; year--) {
+    seasons.push(year)
   }
+  return seasons
 })
 
-const handleItemSelect = async (item) => {
-  selectedItem.value = item
-  showModal.value = true
-  
-  // Load additional details based on type
-  if (props.type === 'Teams') {
-    await loadTeamDetails(item.id)
-  } else if (props.type === 'Players') {
-    await loadPlayerStats(item.id)
-  }
-  
-  // Still emit the select event for parent components
+const selectedSeason = ref(2024)
+
+const handleItemSelect = (item) => {
+  console.log('Item selected:', item)
   emit('select', { type: props.type, item })
 }
 
-const loadTeamDetails = async (teamId) => {
-  isLoadingDetails.value = true
-  try {
-    const response = await api.get(`/teams/${teamId}`)
-    teamDetails.value = response.data
-  } catch (err) {
-    console.error('Failed to load team details:', err)
-  } finally {
-    isLoadingDetails.value = false
-  }
-}
-
-const loadPlayerStats = async (playerId) => {
-  isLoadingDetails.value = true
-  try {
-    const response = await api.get(`/players/${playerId}/stats`)
-    playerStats.value = response.data.data[0]
-  } catch (err) {
-    console.error('Failed to load player stats:', err)
-  } finally {
-    isLoadingDetails.value = false
-  }
-}
-
-// Update click handlers
-const updateClickHandlers = () => {
-  const teamItems = document.querySelectorAll('.team-item')
-  const playerItems = document.querySelectorAll('.player-item')
-  const gameItems = document.querySelectorAll('.game-item')
-
-  teamItems.forEach(item => {
-    item.onclick = (e) => {
-      const team = props.teams[e.currentTarget.dataset.index]
-      handleItemSelect(team)
-    }
-  })
-
-  playerItems.forEach(item => {
-    item.onclick = (e) => {
-      const player = props.players[e.currentTarget.dataset.index]
-      handleItemSelect(player)
-    }
-  })
-
-  gameItems.forEach(item => {
-    item.onclick = (e) => {
-      const game = props.games[e.currentTarget.dataset.index]
-      handleItemSelect(game)
-    }
-  })
-}
-
-// Watch for changes in the lists to update click handlers
-watch([() => props.teams, () => props.players, () => props.games], () => {
-  nextTick(updateClickHandlers)
-})
-
-// Add new refs for modals and stats
-const showTeamStatsModal = ref(false);
-const showPlayerStatsModal = ref(false);
-const showGameStatsModal = ref(false);
-const selectedSeason = ref(2024);
-const availableSeasons = ref([2024, 2023, 2022]);
-const teamDetailedStats = ref(null);
-
-// Add new method for fetching detailed team stats
 const fetchTeamDetailedStats = async () => {
   if (!selectedItem.value) return;
   
@@ -603,6 +438,7 @@ const fetchTeamDetailedStats = async () => {
         season: selectedSeason.value
       }
     });
+    teamDetails.value = response.data;
     teamDetailedStats.value = response.data;
   } catch (error) {
     console.error('Failed to fetch team detailed stats:', error);
@@ -655,6 +491,9 @@ watch(showTeamStatsModal, async (newValue) => {
   position: relative;
   z-index: 9999;
   margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 :deep(.v-select) {
@@ -827,27 +666,67 @@ watch(showTeamStatsModal, async (newValue) => {
   padding-right: 0 !important;
 }
 
-.games-filters-row {
-  display: flex;
-  gap: 16px;
+.date-filters-row,
+.teams-filter-row {
   margin: 0;
-  flex-wrap: nowrap;
 }
 
-:deep(.v-col) {
-  padding: 8px;
-  flex: 1;
-  min-width: 0;
+.teams-filter-row {
+  margin-top: 1rem;
 }
 
-/* Media query for tablet and mobile */
+/* Add styles for team chips */
+:deep(.team-chip) {
+  background: rgba(147, 51, 234, 0.15);
+  color: #e9d5ff;
+  border: 1px solid rgba(147, 51, 234, 0.3);
+  margin: 1px;
+  padding: 0 8px;
+}
+
+:deep(.team-chip .v-chip__close) {
+  opacity: 0.7;
+  color: #e9d5ff;
+}
+
+:deep(.team-chip .v-chip__close:hover) {
+  opacity: 1;
+}
+
+:deep(.v-select .v-select__content) {
+  background: #1a1a1a;
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 8px;
+}
+
+:deep(.v-select .v-select__selection) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+:deep(.teams-filter .v-field__input) {
+  min-height: 56px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+:deep(.v-select__selection-text) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 4px 0;
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
-  .games-filters-row {
-    flex-direction: column;
+  .date-filters-row > .v-col,
+  .teams-filter-row > .v-col {
+    padding: 8px;
   }
-
-  :deep(.v-col) {
-    width: 100%;
+  
+  :deep(.team-chip) {
+    margin: 1px;
   }
 }
 
@@ -858,17 +737,59 @@ watch(showTeamStatsModal, async (newValue) => {
   background: rgba(147, 51, 234, 0.1) !important;
   border-color: rgba(147, 51, 234, 0.2) !important;
   height: 44px;
+  min-height: 44px !important;
+  padding: 2px 8px !important;
 }
 
-:deep(.v-text-field.date-filter .v-field:hover),
-:deep(.v-select.teams-filter .v-field:hover) {
-  background: rgba(147, 51, 234, 0.15) !important;
-}
+:deep(.date-filter) {
+  .v-field__input {
+    color: #e9d5ff !important;
+    font-size: 0.95rem;
+    font-weight: 500;
+    min-height: 44px !important;
+    padding: 2px 8px !important;
+  }
 
-:deep(.v-text-field.date-filter .v-field--focused),
-:deep(.v-select.teams-filter .v-field--focused) {
-  background: rgba(147, 51, 234, 0.2) !important;
-  border-color: #9333ea !important;
+  .v-field__field {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .v-field {
+    min-height: 44px !important;
+  }
+
+  .v-field__outline {
+    color: rgba(147, 51, 234, 0.2) !important;
+  }
+
+  .v-field__outline__start,
+  .v-field__outline__end,
+  .v-field__outline__notch {
+    border-color: rgba(147, 51, 234, 0.2) !important;
+  }
+
+  &:hover .v-field__outline {
+    color: rgba(147, 51, 234, 0.3) !important;
+  }
+
+  .v-field--focused .v-field__outline {
+    color: #9333ea !important;
+  }
+
+  .v-label {
+    color: rgba(233, 213, 255, 0.7) !important;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) hue-rotate(180deg) brightness(1.5);
+    opacity: 0.7;
+    cursor: pointer;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
 }
 
 .details-modal {
@@ -973,46 +894,6 @@ watch(showTeamStatsModal, async (newValue) => {
   font-size: 0.875rem;
 }
 
-:deep(.date-filter) {
-  .v-field__input {
-    color: #e9d5ff !important;
-    font-size: 0.95rem;
-    font-weight: 500;
-  }
-
-  .v-field__outline {
-    color: rgba(147, 51, 234, 0.2) !important;
-  }
-
-  .v-field__outline__start,
-  .v-field__outline__end,
-  .v-field__outline__notch {
-    border-color: rgba(147, 51, 234, 0.2) !important;
-  }
-
-  &:hover .v-field__outline {
-    color: rgba(147, 51, 234, 0.3) !important;
-  }
-
-  .v-field--focused .v-field__outline {
-    color: #9333ea !important;
-  }
-
-  .v-label {
-    color: rgba(233, 213, 255, 0.7) !important;
-  }
-
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) hue-rotate(180deg) brightness(1.5);
-    opacity: 0.7;
-    cursor: pointer;
-  }
-
-  input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
-  }
-}
-
 .details-btn {
   height: 44px;
   font-weight: 600;
@@ -1026,5 +907,53 @@ watch(showTeamStatsModal, async (newValue) => {
   opacity: 0.9;
   transform: translateY(-1px);
   background-color: rgba(147, 51, 234, 0.9) !important;
+}
+
+/* Add styles for tabs */
+:deep(.v-tab) {
+  color: rgba(233, 213, 255, 0.7);
+  font-weight: 500;
+  min-width: 120px;
+}
+
+:deep(.v-tab--selected) {
+  color: #e9d5ff;
+  background: rgba(147, 51, 234, 0.2);
+}
+
+:deep(.v-tabs) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Add more specific styles for the teams filter */
+:deep(.teams-filter) {
+  .v-field__input {
+    min-height: 44px !important;
+    padding: 2px 8px !important;
+  }
+
+  .v-field__field {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .v-field {
+    min-height: 44px !important;
+  }
+
+  .v-select__selection {
+    padding: 0 !important;
+  }
+}
+
+:deep(.team-chip) {
+  height: 24px !important;
+  padding: 0 8px !important;
+  margin: 2px !important;
+}
+
+:deep(.v-select__selection-text) {
+  padding: 2px 0 !important;
 }
 </style> 

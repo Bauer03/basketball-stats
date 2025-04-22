@@ -15,7 +15,6 @@ import { useAuthStore } from '@/stores/authStore'
 const authStore = useAuthStore()
 
 onMounted(() => {
-  // Initialize authentication state from stored token
   authStore.initializeAuth()
 })
 </script>
@@ -45,12 +44,10 @@ body {
 }
 
 .main-content {
-  padding-top: 2rem !important;
   min-height: calc(100vh - 64px);
   background-color: var(--background-dark);
   position: relative;
   z-index: 1;
-  margin-top: 64px !important;
 }
 
 :deep(.v-application) {
