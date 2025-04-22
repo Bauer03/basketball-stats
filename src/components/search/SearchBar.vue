@@ -194,23 +194,18 @@ const handleEnter = async (e) => {
       position: currentPosition.value
     }
     
-    // Wait for the search to complete and get the results
+    // Use the filtered results from useSearch with all current filters
     await debouncedSearch(displayQuery.value, searchType.value, 0, filters.conference, filters)
     
-    // Ensure we have the latest results after the search completes
+    // Wait for the search results to be updated
     await nextTick()
     
     // Get the results based on search type
-    const results = searchType.value === 'Teams' ? searchResults.value?.teams :
-                   searchType.value === 'Players' ? searchResults.value?.players :
-                   searchResults.value?.games
+    const results = searchType.value === 'Teams' ? searchResults.value.teams :
+                   searchType.value === 'Players' ? searchResults.value.players :
+                   searchResults.value.games
 
-    if (!results) {
-      console.error('No results available after search')
-      return
-    }
-
-    console.log(`${searchType.value} search results received:`, results)
+    console.log(`${searchType.value} search results:`, results)
     
     const updateData = { 
       type: searchType.value, 
@@ -218,16 +213,21 @@ const handleEnter = async (e) => {
       query: displayQuery.value 
     }
     
+    console.log('Emitting search-grid-update event with:', updateData)
+    
+    // First dispatch the event globally
+    window.dispatchEvent(new CustomEvent('search-grid-update', { 
+      detail: updateData
+    }))
+
     // Then navigate to the appropriate route if not already there
     const route = searchType.value.toLowerCase()
     if (router.currentRoute.value.path !== `/${route}`) {
       await router.push(`/${route}`)
-      // Wait for navigation to complete
-      await nextTick()
     }
 
-    // Now that we have results and are on the correct route, emit the event
-    console.log('Emitting search-grid-update event with:', updateData)
+    // After navigation, dispatch the event again to ensure the new view receives it
+    await nextTick()
     window.dispatchEvent(new CustomEvent('search-grid-update', { 
       detail: updateData
     }))

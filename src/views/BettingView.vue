@@ -37,12 +37,42 @@
         </v-alert>
 
         <!-- Loading State -->
-        <v-progress-circular
-          v-if="betsStore.isLoading"
-          indeterminate
-          color="#FFA500"
-          class="ma-4"
-        ></v-progress-circular>
+        <v-row v-if="betsStore.isLoading">
+          <v-col v-for="i in 4" :key="i" cols="12" md="6">
+            <v-card class="bet-card mb-4">
+              <v-card-title>
+                <v-skeleton-loader type="heading" width="60%" height="24"></v-skeleton-loader>
+              </v-card-title>
+
+              <v-card-text>
+                <v-row>
+                  <v-col cols="6">
+                    <div class="stat-section">
+                      <h3 class="text-subtitle-1 mb-4">Predictions</h3>
+                      <v-skeleton-loader
+                        v-for="j in 3"
+                        :key="j"
+                        type="text"
+                        class="mb-3"
+                      ></v-skeleton-loader>
+                    </div>
+                  </v-col>
+                  <v-col cols="6">
+                    <div class="stat-section">
+                      <h3 class="text-subtitle-1 mb-4">Actual Stats</h3>
+                      <v-skeleton-loader
+                        v-for="j in 3"
+                        :key="j"
+                        type="text"
+                        class="mb-3"
+                      ></v-skeleton-loader>
+                    </div>
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
 
         <!-- No Bets State -->
         <v-card v-else-if="!betsWithDetails.length" class="no-bets-card pa-6 text-center">
@@ -549,13 +579,138 @@ const handleSubmit = async () => {
   }
 }
 
+// Fetch player details by ID
+const fetchPlayerDetails = async (playerId) => {
+  try {
+    console.log('Fetching player details for ID:', playerId)
+    const result = await playersStore.fetchPlayerById(playerId)
+    if (result?.player) {
+      console.log('Player details fetched successfully:', result.player)
+      // Update the mockPlayers in the betsStore
+      betsStore.mockPlayers[playerId] = {
+        id: playerId,
+        name: result.player.first_name && result.player.last_name 
+          ? `${result.player.first_name} ${result.player.last_name}` 
+          : 'Unknown Player',
+        team: result.player.team?.full_name || result.player.team?.name || 'Unknown Team'
+      }
+      console.log('Updated mockPlayers with player data:', betsStore.mockPlayers[playerId])
+      return result.player
+    }
+    console.log('No player data found for ID:', playerId)
+    return null
+  } catch (error) {
+    console.error('Error fetching player details for ID:', playerId, error)
+    return null
+  }
+}
+
+// Fetch game details by ID
+const fetchGameDetails = async (gameId) => {
+  try {
+    console.log('Fetching game details for ID:', gameId)
+    const result = await gamesApi.getGameById(gameId)
+    console.log('Game API response:', result)
+    
+    if (result?.game) {
+      console.log('Game details fetched successfully:', result.game)
+      // Update the mockGames in the betsStore
+      betsStore.mockGames[gameId] = {
+        id: gameId,
+        homeTeam: result.game.home_team || 'Unknown Team',
+        awayTeam: result.game.visitor_team || 'Unknown Team',
+        date: result.game.date || new Date().toISOString()
+      }
+      console.log('Updated mockGames with game data:', betsStore.mockGames[gameId])
+      
+      // Check if we have player stats in the response
+      if (result.playerStats && Array.isArray(result.playerStats) && result.playerStats.length > 0) {
+        console.log('Player stats found in game response:', result.playerStats.length, 'players')
+        
+        // Find the bet for this game
+        const bet = betsStore.bets.find(b => b.gameId === gameId)
+        if (bet && bet.playerId) {
+          // Get the player name from mockPlayers
+          const playerName = betsStore.mockPlayers[bet.playerId]?.name
+          
+          if (playerName) {
+            console.log('Looking for player with name:', playerName)
+            
+            // Find the player's stats in the game by name
+            const playerStats = result.playerStats.find(p => p.player_name === playerName)
+            
+            if (playerStats) {
+              console.log('Found player stats for player name:', playerName, playerStats)
+              
+              // Update the bet's actualStats
+              bet.actualStats = {
+                points: playerStats.points || 0,
+                assists: playerStats.assists || 0,
+                rebounds: playerStats.rebounds || 0,
+                threes: playerStats.field_goals3_made || 0,
+                steals: playerStats.steals || 0
+              }
+              
+              console.log('Updated bet with actual stats:', bet)
+            } else {
+              console.log('No stats found for player name:', playerName, 'in game:', gameId)
+            }
+          } else {
+            console.log('No player name found for player ID:', bet.playerId)
+          }
+        }
+      }
+      
+      return result.game
+    }
+    console.log('No game data found for ID:', gameId)
+    return null
+  } catch (error) {
+    console.error('Error fetching game details for ID:', gameId, error)
+    return null
+  }
+}
+
 // Fetch bets when component mounts
 onMounted(async () => {
   try {
-    console.log('📊 Fetching user bets...')
+    console.log('Fetching user bets...')
     const response = await betsStore.fetchBets()
-    console.log('📊 Bets API Response:', response)
-    console.log('📊 Processed bets with details:', betsWithDetails.value)
+    console.log('Bets API Response:', response)
+    
+    // Fetch player and game details for each bet
+    if (Array.isArray(betsStore.bets) && betsStore.bets.length > 0) {
+      console.log('Fetching details for bets...')
+      console.log('Total bets to process:', betsStore.bets.length)
+      
+      // Create a map to track unique player and game IDs to avoid duplicate fetches
+      const playerIds = new Set()
+      const gameIds = new Set()
+      
+      betsStore.bets.forEach(bet => {
+        if (bet.playerId) playerIds.add(bet.playerId)
+        if (bet.gameId) gameIds.add(bet.gameId)
+      })
+      
+      console.log('Unique player IDs to fetch:', Array.from(playerIds))
+      console.log('Unique game IDs to fetch:', Array.from(gameIds))
+      
+      // Fetch player details
+      console.log('Starting player details fetch...')
+      const playerResults = await Promise.allSettled(Array.from(playerIds).map(id => fetchPlayerDetails(id)))
+      console.log('Player fetch results:', playerResults.map(result => result.status))
+      
+      // Fetch game details
+      console.log('Starting game details fetch...')
+      const gameResults = await Promise.allSettled(Array.from(gameIds).map(id => fetchGameDetails(id)))
+      console.log('Game fetch results:', gameResults.map(result => result.status))
+      
+      console.log('Finished fetching details for bets')
+      console.log('Updated mockPlayers:', betsStore.mockPlayers)
+      console.log('Updated mockGames:', betsStore.mockGames)
+    }
+    
+    console.log('Processed bets with details:', betsWithDetails.value)
   } catch (error) {
     console.error('Failed to fetch bets:', error)
   }
