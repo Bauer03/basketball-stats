@@ -29,7 +29,7 @@
               :key="team.id"
               class="team-card"
               :class="{ 'selected': selectedTeam?.id === team.id }"
-              @click="selectTeam(team)"
+              @click="selectTeam(team, false)"
               elevation="2"
             >
               <v-icon
@@ -84,7 +84,7 @@
             <div class="header-left">
               <h2>{{ selectedTeam.full_name }}</h2>
               <div class="conference-info">
-                <div class="conference-badge" :class="selectedTeam.conference.toLowerCase()">
+                <div class="conference-badge" :class="selectedTeam?.conference?.toLowerCase() || 'unknown'">
                   {{ selectedTeam.conference }} Conference
                 </div>
                 <div class="division-badge">
@@ -154,25 +154,26 @@
     <!-- Team Details Modal -->
     <v-dialog
       v-model="showTeamModal"
-      max-width="800"
+      max-width="1000"
       scrollable
     >
       <v-card class="team-details-modal">
-        <v-card-title class="d-flex justify-space-between align-center pa-4">
-          <span>{{ selectedTeam?.full_name }} - Detailed Stats</span>
+        <v-card-title class="d-flex justify-space-between align-center pa-6">
+          <div class="d-flex align-center">
+            <span class="text-h5">{{ selectedTeam?.full_name }}</span>
+            <span class="team-abbr-badge ml-4">{{ selectedTeam?.abbreviation }}</span>
+          </div>
           <v-btn icon="mdi-close" variant="text" @click="showTeamModal = false"></v-btn>
         </v-card-title>
 
-        <v-card-text class="pa-4">
-          <div class="season-selector mb-6">
+        <v-card-text class="pa-6">
+          <div class="season-selector mb-8">
             <v-select
-              v-model="selectedSeasons"
+              v-model="selectedSeason"
               :items="availableSeasons"
-              label="Select Seasons"
+              label="Select Season"
               variant="outlined"
               density="comfortable"
-              multiple
-              chips
               hide-details
               @update:model-value="fetchDetailedStats"
             ></v-select>
@@ -181,7 +182,7 @@
           <div v-if="isLoadingDetails" class="loading-skeleton pa-4">
             <div v-for="i in 6" :key="i" class="skeleton-stat-item">
               <div class="skeleton-value"></div>
-              <div class="skeleton-label"></div>
+              <div class="skeleton-stat-label"></div>
             </div>
           </div>
 
@@ -217,7 +218,7 @@
               variant="tonal"
               class="mt-4"
             >
-              No statistics available for the selected seasons
+              No statistics available for the selected season
             </v-alert>
           </div>
         </v-card-text>
@@ -237,17 +238,20 @@ const selectedTeam = ref(null)
 const teamDetails = ref(null)
 const isLoading = ref(true)
 const isLoadingDetails = ref(false)
+const isLoadingFavorites = ref(false)
 const error = ref(null)
 const favoriteTeams = ref(new Set())
 const showTeamModal = ref(false)
-const selectedSeasons = ref([])
+const selectedSeason = ref(2024)
 const availableSeasons = ref([2024, 2023, 2022, 2021, 2020])
 const detailedTeamStats = ref(null)
 const isInFavoritesView = ref(false)
 
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Teams') {
-    await selectTeam(item)
+    // Extract the team data from the item structure
+    const teamData = item.item || item
+    await selectTeam(teamData, true)
   } else if (type === 'Players') {
     router.push('/players')
   } else if (type === 'Games') {
@@ -255,9 +259,16 @@ const handleSearchSelection = async ({ type, item }) => {
   }
 }
 
-const isFavorite = (teamId) => favoriteTeams.value.has(teamId)
+const isFavorite = (teamId) => {
+  return teamId && favoriteTeams.value.has(teamId.toString())
+}
 
 const toggleFavorite = async (team) => {
+  if (!team || !team.id) {
+    console.error('Cannot toggle favorite - invalid team:', team)
+    return
+  }
+
   try {
     if (isFavorite(team.id)) {
       await api.unfavoriteTeam(team.id)
@@ -284,29 +295,76 @@ const toggleFavorite = async (team) => {
 
 const loadFavoriteTeams = async () => {
   try {
-    const response = await api.getFavoriteTeams()
-    const favoriteTeamsData = Array.isArray(response.data) ? response.data : []
-    favoriteTeams.value = new Set(favoriteTeamsData.map(team => team.id))
-  } catch (err) {
-    console.error('Failed to load favorite teams:', err)
+    isLoadingFavorites.value = true
+    console.log('Loading favorite teams...')
+    
+    // Get favorite team IDs from API using correct endpoint
+    const favoritesResponse = await api.get('/favorite-teams')
+    const favoriteTeamIds = favoritesResponse.data.favoriteTeams
+    console.log('Favorite team IDs:', favoriteTeamIds)
+    
+    if (!favoriteTeamIds || !Array.isArray(favoriteTeamIds)) {
+      console.error('Invalid favorites response:', favoritesResponse.data)
+      return
+    }
+    
+    // Fetch details for each favorite team
+    const teamDetailsPromises = favoriteTeamIds.map(async (teamId) => {
+      try {
+        const response = await api.get(`/teams/${teamId}`)
+        if (!response.data || !response.data.team) {
+          console.error(`Invalid team details response for ID ${teamId}:`, response.data)
+          return null
+        }
+        return response.data.team
+      } catch (error) {
+        console.error(`Failed to fetch details for team ${teamId}:`, error)
+        return null
+      }
+    })
+    
+    // Wait for all team details and filter out failed requests
+    const teamDetails = await Promise.all(teamDetailsPromises)
+    const validTeams = teamDetails.filter(team => team !== null)
+    console.log('Valid favorite teams loaded:', validTeams)
+    
+    // Update the teams array with valid teams
+    teams.value = validTeams
+    
+    // Select first team if available (without opening modal)
+    if (validTeams.length > 0) {
+      selectTeam(validTeams[0], false)
+    }
+    
+  } catch (error) {
+    console.error('Error loading favorite teams:', error)
+  } finally {
+    isLoadingFavorites.value = false
   }
 }
 
-const updateTeams = (newTeams) => {
-  console.log('Updating teams with:', newTeams)
-  teams.value = newTeams
+const updateTeams = async (newTeams) => {
+  console.log('Teams view received update request:', newTeams)
+  
+  // If newTeams is falsy or empty, load favorite teams
+  if (!newTeams || !Array.isArray(newTeams) || newTeams.length === 0) {
+    console.log('No teams provided, loading favorite teams')
+    isInFavoritesView.value = true
+    await loadFavoriteTeams()
+    return
+  }
+  
+  // Ensure newTeams is an array and filter out invalid entries
+  const validTeams = newTeams.filter(team => team && team.id)
+  console.log('Valid teams to display:', validTeams)
+  
+  teams.value = validTeams
   isInFavoritesView.value = true
   
-  // Set favorite status for all loaded teams
-  newTeams.forEach(team => {
-    if (team.id) {
-      favoriteTeams.value.add(team.id)
-    }
-  })
-  
   // If we have teams, select the first one without opening modal
-  if (newTeams.length > 0) {
-    selectTeam(newTeams[0], false)
+  if (validTeams.length > 0) {
+    console.log('Selecting first team:', validTeams[0])
+    selectTeam(validTeams[0], false)
   }
 }
 
@@ -321,7 +379,7 @@ const fetchTeams = async () => {
     const response = await api.get('/teams')
     console.log('Fetched all teams:', response.data.data)
     teams.value = response.data.data
-    // Find and select the LA Lakers by default
+    // Find and select the LA Lakers by default, without opening modal
     const lakers = teams.value.find(team => team.full_name === 'Los Angeles Lakers')
     if (lakers) {
       selectedTeam.value = lakers
@@ -338,6 +396,13 @@ const fetchTeamDetails = async (teamId) => {
   isLoadingDetails.value = true
   console.log('Fetching initial team details:', { teamId })
   
+  // Skip the API call if teamId is undefined
+  if (!teamId) {
+    console.warn('Skipping team details fetch - teamId is undefined')
+    isLoadingDetails.value = false
+    return
+  }
+  
   try {
     const response = await api.get(`/teams/${teamId}`)
     console.log('Initial team details API response:', response.data)
@@ -353,32 +418,47 @@ const fetchTeamDetails = async (teamId) => {
   }
 }
 
-const selectTeam = async (team, openModal = true) => {
-  selectedTeam.value = team
-  await fetchTeamDetails(team.id)
-  if (!openModal) {
-    showTeamModal.value = false
+const selectTeam = async (team, openModal = false) => {
+  if (!team) {
+    console.warn('Cannot select team - team is undefined')
+    return
   }
+  
+  // Handle different team object structures
+  const teamId = team.id || (team.item && team.item.id)
+  const teamData = team.item || team
+  
+  if (!teamId) {
+    console.warn('Cannot fetch team details - team ID is undefined', team)
+    return
+  }
+  
+  selectedTeam.value = teamData
+  
+  // Only show modal if explicitly requested
+  if (openModal) {
+    showTeamModal.value = true
+  }
+  
+  // Always fetch team details for the side panel
+  await fetchTeamDetails(teamId)
 }
 
 const fetchDetailedStats = async () => {
-  if (!selectedTeam.value || !selectedSeasons.value.length) {
-    console.log('Skipping team details fetch - no team or seasons selected', {
+  if (!selectedTeam.value || !selectedSeason.value) {
+    console.log('Skipping team details fetch - no team or season selected', {
       team: selectedTeam.value?.id,
-      seasons: selectedSeasons.value
+      season: selectedSeason.value
     })
     return
   }
   
   isLoadingDetails.value = true
-  console.log('Fetching team details:', {
-    teamId: selectedTeam.value.id,
-    seasons: selectedSeasons.value
-  })
-
+  detailedTeamStats.value = null // Clear previous stats while loading
+  
   try {
     const params = new URLSearchParams()
-    selectedSeasons.value.forEach(season => params.append('seasons[]', season))
+    params.append('season', selectedSeason.value.toString())
     
     const url = `/teams/${selectedTeam.value.id}?${params.toString()}`
     console.log('Making request to:', url)
@@ -386,12 +466,16 @@ const fetchDetailedStats = async () => {
     const response = await api.get(url)
     console.log('Team details API response:', response.data)
     
-    detailedTeamStats.value = response.data.standings
+    if (response.data.standings) {
+      detailedTeamStats.value = response.data.standings
+    } else {
+      console.warn('No standings data in response:', response.data)
+    }
   } catch (err) {
     console.error('Failed to fetch team details:', {
       error: err.message,
       teamId: selectedTeam.value.id,
-      seasons: selectedSeasons.value,
+      season: selectedSeason.value,
       status: err.response?.status
     })
   } finally {
@@ -403,10 +487,31 @@ const fetchDetailedStats = async () => {
 watch(() => selectedTeam.value, () => {
   if (selectedTeam.value && teamDetails.value) {
     detailedTeamStats.value = teamDetails.value.standings
-    selectedSeasons.value = [teamDetails.value.standings.season] // Set to current season
+    selectedSeason.value = teamDetails.value.standings.season // Set to current season
   } else {
     detailedTeamStats.value = null
-    selectedSeasons.value = [2024] // Reset to current season
+    selectedSeason.value = 2024 // Reset to current season
+  }
+})
+
+// Watch for modal visibility to prevent content snap
+watch(showTeamModal, async (isOpen) => {
+  if (isOpen) {
+    document.body.style.paddingRight = window.innerWidth - document.documentElement.clientWidth + 'px'
+    document.body.style.overflow = 'hidden'
+    
+    // Fetch stats when modal opens
+    if (selectedTeam.value) {
+      isLoadingDetails.value = true
+      try {
+        await fetchDetailedStats()
+      } catch (err) {
+        console.error('Failed to load initial stats:', err)
+      }
+    }
+  } else {
+    document.body.style.paddingRight = ''
+    document.body.style.overflow = ''
   }
 })
 
@@ -597,22 +702,35 @@ formatting for mobile, may add more stuff specifically here...
 }
 
 .stat-item {
-  background-color: rgba(147, 51, 234, 0.1);
-  border: 1px solid rgba(147, 51, 234, 0.2);
-  border-radius: 6px;
-  padding: 1rem;
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.1);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 120px;
+  transition: all 0.2s ease;
 }
 
-.stat-label {
-  color: rgba(233, 213, 255, 0.7);
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
+.stat-item:hover {
+  background: rgba(147, 51, 234, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.15);
 }
 
 .stat-value {
-  color: #e9d5ff;
-  font-size: 1.25rem;
-  font-weight: 500;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #9333ea;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: rgba(233, 213, 255, 0.7);
+  text-align: center;
 }
 
 .loading-container {
@@ -927,38 +1045,39 @@ formatting for mobile, may add more stuff specifically here...
 
 .detailed-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
   padding: 1rem;
 }
 
 .loading-skeleton {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
 }
 
 .skeleton-stat-item {
   background: rgba(147, 51, 234, 0.05);
   border: 1px solid rgba(147, 51, 234, 0.1);
   border-radius: 8px;
-  padding: 1rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  min-height: 120px;
 }
 
 .skeleton-value {
-  height: 32px;
-  width: 60%;
+  height: 40px;
+  width: 70%;
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
   animation: pulse 1.5s infinite;
 }
 
 .skeleton-label {
-  height: 16px;
+  height: 20px;
   width: 80%;
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
@@ -982,36 +1101,7 @@ formatting for mobile, may add more stuff specifically here...
 }
 
 .season-selector {
-  max-width: 300px;
-}
-
-:deep(.v-list) {
-  background: transparent !important;
-  padding: 0;
-}
-
-:deep(.v-list-item) {
-  color: rgba(233, 213, 255, 0.7) !important;
-  padding: 0.75rem 0;
-}
-
-:deep(.v-list-item-title) {
-  color: #e9d5ff !important;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-:deep(.v-list-item-subtitle) {
-  color: rgba(233, 213, 255, 0.7) !important;
-  font-size: 1rem;
-}
-
-:deep(.v-list-item__prepend) {
-  margin-right: 1rem;
-}
-
-:deep(.v-icon) {
-  color: #9333ea !important;
+  max-width: 400px;
 }
 
 .empty-favorites-state {
@@ -1040,5 +1130,69 @@ formatting for mobile, may add more stuff specifically here...
 .favorite-btn-details {
   opacity: 1 !important;
   position: static !important;
+}
+
+@media (max-width: 768px) {
+  .detailed-stats-grid,
+  .loading-skeleton {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .detailed-stats-grid,
+  .loading-skeleton {
+    grid-template-columns: 1fr;
+  }
+}
+
+.team-abbr-badge {
+  background: rgba(147, 51, 234, 0.1);
+  color: #9333ea;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.season-tabs {
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid rgba(147, 51, 234, 0.1);
+}
+
+:deep(.season-tab) {
+  color: rgba(233, 213, 255, 0.7) !important;
+  min-width: 100px;
+  border-radius: 6px;
+  margin: 4px;
+  transition: all 0.2s ease;
+}
+
+:deep(.season-tab--selected) {
+  color: #e9d5ff !important;
+  background: rgba(147, 51, 234, 0.2);
+}
+
+:deep(.v-tab:hover) {
+  color: #e9d5ff !important;
+  background: rgba(147, 51, 234, 0.1);
+}
+
+:deep(.v-window__container) {
+  height: auto !important;
+}
+
+:deep(.v-window-item) {
+  height: auto !important;
+}
+
+:deep(.v-window__container) {
+  transition: none !important;
+}
+
+:deep(.v-window-item--active) {
+  transition: none !important;
 }
 </style> 

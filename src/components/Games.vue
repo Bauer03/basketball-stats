@@ -5,7 +5,6 @@
     </div>
 
     <div class="games-layout">
-      <!-- Games Grid Column -->
       <div class="games-grid-column">
         <div v-if="isLoading" class="skeleton-container">
           <div class="skeleton-grid">
@@ -202,121 +201,216 @@
     </div>
 
     <!-- Game Details Modal -->
-    <v-dialog v-model="showGameModal" max-width="800">
+    <v-dialog 
+      v-model="showGameModal" 
+      max-width="90vw"
+      class="game-details-dialog"
+    >
       <v-card v-if="selectedGame" class="game-details-modal">
-        <v-card-title class="d-flex justify-space-between align-center pa-4">
-          <span>Game Details</span>
-          <v-btn icon="mdi-close" variant="text" @click="showGameModal = false"></v-btn>
-        </v-card-title>
-        
-        <v-card-text class="pa-4">
-          <div class="modal-section">
-            <h3 class="text-h6 mb-4">Game Information</h3>
-            <v-list>
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="primary">mdi-calendar</v-icon>
-                </template>
-                <v-list-item-title>Date</v-list-item-title>
-                <v-list-item-subtitle>{{ formatDate(selectedGame.date) }}</v-list-item-subtitle>
-              </v-list-item>
-              
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="primary">mdi-clock-outline</v-icon>
-                </template>
-                <v-list-item-title>Status</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ selectedGame.status }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="primary">mdi-trophy</v-icon>
-                </template>
-                <v-list-item-title>Game Type</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ selectedGame.postseason ? 'Playoff Game' : 'Regular Season' }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <template v-slot:prepend>
-                  <v-icon color="primary">mdi-basketball</v-icon>
-                </template>
-                <v-list-item-title>Season</v-list-item-title>
-                <v-list-item-subtitle>{{ selectedGame.season }}</v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </div>
-
-          <v-divider class="my-4"></v-divider>
-
-          <div class="modal-section">
-            <h3 class="text-h6 mb-4">Team Information</h3>
-            <div class="teams-detail">
-              <div class="team-detail">
-                <h4 class="text-h6 mb-2">Home Team</h4>
-                <v-list>
-                  <v-list-item>
-                    <v-list-item-title>{{ selectedGame.home_team.full_name }}</v-list-item-title>
-                    <v-list-item-subtitle>{{ selectedGame.home_team.abbreviation }}</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <v-list-item-title>Conference</v-list-item-title>
-                    <v-list-item-subtitle>{{ selectedGame.home_team.conference }}</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <v-list-item-title>Division</v-list-item-title>
-                    <v-list-item-subtitle>{{ selectedGame.home_team.division }}</v-list-item-subtitle>
-                  </v-list-item>
-                </v-list>
+        <v-card-text class="pa-6">
+          <div v-if="isLoadingGameDetails" class="modal-skeleton">
+            <div class="skeleton-header">
+              <div class="skeleton-title"></div>
+              <div class="skeleton-status"></div>
+            </div>
+            
+            <div class="skeleton-teams-score">
+              <div class="skeleton-team">
+                <div class="skeleton-team-info">
+                  <div class="skeleton-team-name"></div>
+                  <div class="skeleton-team-meta">
+                    <div class="skeleton-team-abbr"></div>
+                    <div class="skeleton-team-conference"></div>
+                  </div>
+                </div>
+                <div class="skeleton-score"></div>
               </div>
-
-              <v-divider vertical></v-divider>
-
-              <div class="team-detail">
-                <h4 class="text-h6 mb-2">Visitor Team</h4>
-                <v-list>
-                  <v-list-item>
-                    <v-list-item-title>{{ selectedGame.visitor_team.full_name }}</v-list-item-title>
-                    <v-list-item-subtitle>{{ selectedGame.visitor_team.abbreviation }}</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <v-list-item-title>Conference</v-list-item-title>
-                    <v-list-item-subtitle>{{ selectedGame.visitor_team.conference }}</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <v-list-item-title>Division</v-list-item-title>
-                    <v-list-item-subtitle>{{ selectedGame.visitor_team.division }}</v-list-item-subtitle>
-                  </v-list-item>
-                </v-list>
+              
+              <div class="skeleton-divider">
+                <div class="skeleton-vs"></div>
+              </div>
+              
+              <div class="skeleton-team">
+                <div class="skeleton-team-info">
+                  <div class="skeleton-team-name"></div>
+                  <div class="skeleton-team-meta">
+                    <div class="skeleton-team-abbr"></div>
+                    <div class="skeleton-team-conference"></div>
+                  </div>
+                </div>
+                <div class="skeleton-score"></div>
+              </div>
+            </div>
+            
+            <div class="skeleton-stats">
+              <div class="skeleton-stats-title"></div>
+              <div class="skeleton-stats-table">
+                <div class="skeleton-table-header"></div>
+                <div v-for="i in 5" :key="`skeleton-row-${i}`" class="skeleton-table-row"></div>
               </div>
             </div>
           </div>
+          <div v-else>
+            <!-- Game Header -->
+            <div class="modal-header">
+              <div class="header-content">
+                <div class="date-status">
+                  <h2 class="text-h4 font-weight-bold">{{ formatDate(selectedGame.date) }}</h2>
+                  <div class="game-status" :class="selectedGame.status.toLowerCase()">
+                    <v-icon size="20" class="mr-2">
+                      {{ selectedGame.status === 'Final' ? 'mdi-whistle' : 'mdi-clock-outline' }}
+                    </v-icon>
+                    {{ selectedGame.status }}
+                  </div>
+                </div>
+                <v-btn
+                  icon="mdi-close"
+                  variant="text"
+                  @click="showGameModal = false"
+                  class="close-btn"
+                ></v-btn>
+              </div>
 
-          <v-divider class="my-4"></v-divider>
+              <div class="teams-score-display">
+                <div class="modal-team-score" :class="{ 'winner': selectedGame.home_team_score > selectedGame.visitor_team_score }">
+                  <div class="team-info">
+                    <div class="team-name">{{ selectedGame.home_team.full_name }}</div>
+                    <div class="team-meta">
+                      <span class="team-abbr">{{ selectedGame.home_team.abbreviation }}</span>
+                      <span class="team-conference">{{ selectedGame.home_team.conference }}</span>
+                    </div>
+                  </div>
+                  <div class="score">{{ selectedGame.home_team_score }}</div>
+                </div>
 
-          <div class="modal-section">
-            <h3 class="text-h6 mb-4">Player Stats</h3>
-            <v-data-table
-              :headers="[
-                { title: 'Player', key: 'player_name' },
-                { title: 'Team', key: 'team' },
-                { title: 'PTS', key: 'points' },
-                { title: 'REB', key: 'rebounds' },
-                { title: 'AST', key: 'assists' },
-                { title: 'STL', key: 'steals' },
-                { title: 'BLK', key: 'blocks' },
-                { title: 'FG', key: 'field_goals_made', format: value => `${value}/${value + field_goals_attempt}` },
-                { title: 'FG%', key: 'field_goal_percentage', format: value => `${(value * 100).toFixed(1)}%` },
-                { title: '3P', key: 'field_goals3_made', format: value => `${value}/${value + field_goals3_attempt}` },
-                { title: '3P%', key: 'field_goal3_percentage', format: value => `${(value * 100).toFixed(1)}%` }
-              ]"
-              :items="selectedGame.playerStats"
-              class="player-stats-table"
-            ></v-data-table>
+                <div class="score-divider">
+                  <div class="vs">VS</div>
+                </div>
+
+                <div class="modal-team-score" :class="{ 'winner': selectedGame.visitor_team_score > selectedGame.home_team_score }">
+                  <div class="team-info">
+                    <div class="team-name">{{ selectedGame.visitor_team.full_name }}</div>
+                    <div class="team-meta">
+                      <span class="team-abbr">{{ selectedGame.visitor_team.abbreviation }}</span>
+                      <span class="team-conference">{{ selectedGame.visitor_team.conference }}</span>
+                    </div>
+                  </div>
+                  <div class="score">{{ selectedGame.visitor_team_score }}</div>
+                </div>
+              </div>
+
+              <div class="game-meta-info">
+                <div class="meta-item">
+                  <v-icon size="20" class="mr-2">mdi-basketball</v-icon>
+                  <span>Season {{ selectedGame.season }}</span>
+                </div>
+                <div class="meta-item">
+                  <v-icon size="20" class="mr-2">mdi-trophy</v-icon>
+                  <span>{{ selectedGame.postseason ? 'Playoff Game' : 'Regular Season' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <v-divider class="my-6"></v-divider>
+
+            <!-- Player Stats Section -->
+            <div class="stats-section">
+              <h3 class="text-h5 font-weight-bold mb-4">Player Statistics</h3>
+              <v-data-table
+                :headers="[
+                  { title: 'Player', key: 'player_name', align: 'start' },
+                  { 
+                    title: 'Team', 
+                    key: 'team', 
+                    align: 'start',
+                    value: (item) => {
+                      const teamName = item.team;
+                      return teamName === selectedGame.home_team.full_name ? 
+                        selectedGame.home_team.abbreviation : 
+                        selectedGame.visitor_team.abbreviation;
+                    }
+                  },
+                  { 
+                    title: 'MIN', 
+                    key: 'minutes', 
+                    align: 'end',
+                    value: (item) => item.isDNP ? 'DNP' : item.minutes
+                  },
+                  { 
+                    title: 'PTS', 
+                    key: 'points', 
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : item.points
+                  },
+                  { 
+                    title: 'REB', 
+                    key: 'rebounds', 
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : item.rebounds
+                  },
+                  { 
+                    title: 'AST', 
+                    key: 'assists', 
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : item.assists
+                  },
+                  { 
+                    title: 'STL', 
+                    key: 'steals', 
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : item.steals
+                  },
+                  { 
+                    title: 'BLK', 
+                    key: 'blocks', 
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : item.blocks
+                  },
+                  { 
+                    title: 'FG',
+                    key: 'field_goals',
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : `${item.field_goals_made}/${item.field_goals_attempt}`
+                  },
+                  { 
+                    title: 'FG%',
+                    key: 'field_goal_percentage',
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : (item.field_goal_percentage ? `${(item.field_goal_percentage * 100).toFixed(1)}%` : '-')
+                  },
+                  { 
+                    title: '3P',
+                    key: 'three_points',
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : `${item.field_goals3_made}/${item.field_goals3_attempt}`
+                  },
+                  { 
+                    title: '3P%',
+                    key: 'field_goal3_percentage',
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : (item.field_goal3_percentage ? `${(item.field_goal3_percentage * 100).toFixed(1)}%` : '-')
+                  },
+                  { 
+                    title: 'FT',
+                    key: 'free_throws',
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : `${item.freethrows_made}/${item.freethrows_attempt}`
+                  },
+                  { 
+                    title: 'FT%',
+                    key: 'freethrow_percentage',
+                    align: 'end',
+                    value: (item) => item.isDNP ? '-' : (item.freethrow_percentage ? `${(item.freethrow_percentage * 100).toFixed(1)}%` : '-')
+                  }
+                ]"
+                :items="selectedGame.playerStats || []"
+                :items-per-page="-1"
+                hide-default-footer
+                class="player-stats-table"
+                :loading="isLoadingGameDetails"
+                density="compact"
+              ></v-data-table>
+            </div>
           </div>
         </v-card-text>
       </v-card>
@@ -325,12 +419,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 import debounce from 'lodash/debounce'
 
-// Initialize all refs and state synchronously
 const router = useRouter()
 const games = ref([])
 const teams = ref([])
@@ -344,8 +437,8 @@ const currentCursor = ref(null)
 const hasNextPage = ref(false)
 const isInFavoritesView = ref(false)
 const perPage = 25
+const isLoadingGameDetails = ref(false)
 
-// Initialize date filters synchronously
 const startDate = ref((() => {
   const today = new Date()
   const year = today.getMonth() < 9 ? today.getFullYear() - 1 : today.getFullYear()
@@ -382,12 +475,57 @@ onMounted(() => {
   window.addEventListener('stats-view-changed', handleStatsViewChanged)
 })
 
-// Clean up event listener
 onUnmounted(() => {
   window.removeEventListener('stats-view-changed', handleStatsViewChanged)
 })
 
-// Rest of your existing functions
+// Watch showGameModal to fetch game details when opened
+watch(showGameModal, async (isOpen) => {
+  if (isOpen && selectedGame.value) {
+    try {
+      isLoadingGameDetails.value = true
+      const gameId = selectedGame.value.id
+      console.log('Opening game modal, fetching details for game:', gameId)
+      const response = await api.get(`/games/${gameId}`)
+      console.log('Game details response:', response.data)
+      
+      // Update the selected game with the fetched details, preserving team objects
+      selectedGame.value = {
+        ...selectedGame.value,
+        date: response.data.game.date,
+        status: response.data.game.status,
+        home_team_score: response.data.game.home_team_score,
+        visitor_team_score: response.data.game.visitor_team_score,
+        home_team: {
+          ...selectedGame.value.home_team,
+          full_name: response.data.game.home_team || selectedGame.value.home_team.full_name
+        },
+        visitor_team: {
+          ...selectedGame.value.visitor_team,
+          full_name: response.data.game.visitor_team || selectedGame.value.visitor_team.full_name
+        },
+        playerStats: response.data.playerStats?.map(stat => ({
+          ...stat,
+          // Format percentages as decimals if they're not already
+          field_goal_percentage: typeof stat.field_goal_percentage === 'string' ? 
+            parseFloat(stat.field_goal_percentage) : stat.field_goal_percentage,
+          field_goal3_percentage: typeof stat.field_goal3_percentage === 'string' ? 
+            parseFloat(stat.field_goal3_percentage) : stat.field_goal3_percentage,
+          freethrow_percentage: typeof stat.freethrow_percentage === 'string' ? 
+            parseFloat(stat.freethrow_percentage) : stat.freethrow_percentage,
+          // Add DNP status (did not play, eli's note)
+          isDNP: !stat.minutes || stat.minutes === "00" || stat.minutes === "0"
+        })) || []
+      }
+    } catch (err) {
+      console.error('Failed to fetch game details:', err)
+      error.value = 'Failed to load game details'
+    } finally {
+      isLoadingGameDetails.value = false
+    }
+  }
+})
+
 const validateDates = (start, end) => {
   try {
     const startDate = new Date(start)
@@ -457,8 +595,8 @@ const fetchGames = async (cursor = null) => {
     }
 
     const url = `${api.defaults.baseURL}/games?${params}`
-    console.log('📊 Games API Request URL:', url)
-    console.log('📊 Request parameters:', {
+    console.log('Games API Request URL:', url)
+    console.log('Request parameters:', {
       startDate: startDate.value,
       endDate: endDate.value,
       perPage,
@@ -467,7 +605,7 @@ const fetchGames = async (cursor = null) => {
     })
 
     const response = await api.get('/games', { params })
-    console.log('📊 Games response:', response.data)
+    console.log('Games response:', response.data)
     
     games.value = response.data.data
     hasNextPage.value = !!response.data.meta?.next_cursor
@@ -503,9 +641,46 @@ const selectGame = (game) => {
   selectedGame.value = game
 }
 
-const handleSearchSelection = async ({ type, item }) => {
+const handleSearchSelection = async ({ type, item, shouldOpenModal = false }) => {
+  console.log('Games component received search selection:', { type, item, shouldOpenModal })
+  
   if (type === 'Games') {
-    await selectGame(item)
+    // Update the games grid with the search results
+    if (Array.isArray(item)) {
+      console.log('Updating games grid with array of games:', item)
+      games.value = item
+      isInFavoritesView.value = false
+      
+      // If we have games, select the first one without showing modal
+      if (item.length > 0) {
+        console.log('Selecting first game from search results:', item[0])
+        selectGame(item[0])
+        if (shouldOpenModal) {
+          showGameModal.value = true
+        }
+      }
+    } else if (item && item.data) {
+      // Handle the case where item is an object with data property
+      console.log('Updating games grid with games from data property:', item.data)
+      games.value = item.data
+      isInFavoritesView.value = false
+      
+      // If we have games, select the first one without showing modal
+      if (item.data.length > 0) {
+        console.log('Selecting first game from search results:', item.data[0])
+        selectGame(item.data[0])
+        if (shouldOpenModal) {
+          showGameModal.value = true
+        }
+      }
+    } else {
+      // If it's a single game, select it and optionally show modal
+      console.log('Selecting single game:', item)
+      selectGame(item)
+      if (shouldOpenModal) {
+        showGameModal.value = true
+      }
+    }
   } else if (type === 'Players') {
     router.push('/players')
   } else if (type === 'Teams') {
@@ -515,17 +690,22 @@ const handleSearchSelection = async ({ type, item }) => {
 
 const handleSearchGridUpdate = (data) => {
   console.log('Games view received search grid update:', data)
-  if (data.type === 'Games' && Array.isArray(data.results)) {
+  if (data.type === 'Games') {
+    // Check if results is an array or has a data property
+    const results = Array.isArray(data.results) ? data.results : 
+                   (data.results && data.results.data) ? data.results.data : 
+                   []
+    
     // Only update if we have a search query
     if (data.query && data.query.trim()) {
-      console.log('Updating games grid with search results:', data.results)
-      games.value = data.results
+      console.log('Updating games grid with search results:', results)
+      games.value = results
       isInFavoritesView.value = false
       
       // If we have games, select the first one
-      if (data.results.length > 0) {
-        console.log('Selecting first game from search results:', data.results[0])
-        selectGame(data.results[0])
+      if (results.length > 0) {
+        console.log('Selecting first game from search results:', results[0])
+        selectGame(results[0])
       }
     } else {
       // If no search query, fetch all games
@@ -659,6 +839,10 @@ const updateDateRange = async (newStartDate, newEndDate) => {
 .team.winner {
   background: rgba(147, 51, 234, 0.1);
   border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .team-info {
@@ -733,7 +917,7 @@ const updateDateRange = async (newStartDate, newEndDate) => {
   color: rgba(233, 213, 255, 0.7);
 }
 
-/* Skeleton styling, can change */
+/* Skeleton styling, can change, definitely not efficient but wtv */
 .skeleton-container {
   width: 100%;
 }
@@ -936,87 +1120,468 @@ const updateDateRange = async (newStartDate, newEndDate) => {
 }
 
 .game-details-modal {
-  background: #1a1a1a;
+  background: var(--background-dark, #1a1a1a);
   color: #e9d5ff;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid rgba(147, 51, 234, 0.2);
 }
 
-.modal-section {
-  margin-bottom: 2rem;
+.stats-section {
+  margin-top: 2rem;
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid rgba(147, 51, 234, 0.1);
 }
 
-.teams-detail {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 2rem;
-  align-items: start;
+:deep(.player-stats-table) {
+  background: transparent !important;
+  width: 100%;
+  min-width: 1200px;
 }
 
-.team-detail {
-  flex: 1;
+:deep(.v-data-table) {
+  background: transparent !important;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-:deep(.v-list) {
+:deep(.v-data-table__wrapper) {
   background: transparent !important;
 }
 
-:deep(.v-list-item) {
-  color: rgba(233, 213, 255, 0.7) !important;
+:deep(.v-data-table .v-table__wrapper > table) {
+  background: transparent !important;
+  border-spacing: 0;
+  border-collapse: separate;
 }
 
-:deep(.v-list-item-title) {
-  color: #e9d5ff !important;
-}
-
-:deep(.v-list-item-subtitle) {
-  color: rgba(233, 213, 255, 0.7) !important;
-}
-
-.details-btn {
-  height: 44px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: none;
+:deep(.v-data-table__tr) {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(147, 51, 234, 0.1) !important;
   transition: all 0.2s ease;
+}
+
+:deep(.v-data-table__tr:hover) {
+  background: rgba(147, 51, 234, 0.1) !important;
+}
+
+:deep(.v-data-table__th) {
+  color: rgba(233, 213, 255, 0.9) !important;
+  font-weight: 600 !important;
+  font-size: 0.9rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  background: rgba(147, 51, 234, 0.1) !important;
+  border-bottom: 2px solid rgba(147, 51, 234, 0.2) !important;
+  padding: 12px 16px !important;
+}
+
+:deep(.v-data-table__td) {
+  color: #e9d5ff !important;
+  font-size: 0.9rem !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid rgba(147, 51, 234, 0.1) !important;
+}
+
+/* Style for DNP rows */
+:deep(.v-data-table__tr.dnp) {
+  opacity: 0.7;
+  background: rgba(147, 51, 234, 0.02) !important;
+}
+
+:deep(.v-data-table__tr.dnp:hover) {
+  background: rgba(147, 51, 234, 0.08) !important;
+}
+
+:deep(.v-data-table__tr.dnp td) {
+  color: rgba(233, 213, 255, 0.7) !important;
+  font-style: italic;
+}
+
+/* loading state */
+:deep(.v-data-table-loader) {
+  background: rgba(147, 51, 234, 0.05) !important;
+}
+
+/* empty state */
+:deep(.v-data-table__empty-wrapper) {
+  color: rgba(233, 213, 255, 0.7) !important;
+  background: rgba(147, 51, 234, 0.05) !important;
+  padding: 2rem !important;
+  text-align: center;
   border-radius: 8px;
 }
 
-.details-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  background-color: rgba(147, 51, 234, 0.9) !important;
+/* scrollbar */
+.game-details-modal::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
 
-.details-header {
+.game-details-modal::-webkit-scrollbar-track {
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 6px;
+}
+
+.game-details-modal::-webkit-scrollbar-thumb {
+  background: rgba(147, 51, 234, 0.2);
+  border-radius: 6px;
+  border: 3px solid rgba(147, 51, 234, 0.05);
+}
+
+.game-details-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 51, 234, 0.3);
+}
+
+/* Style for horizontal scrollbar in stats section */
+.stats-section {
+  overflow-x: auto;
+}
+
+.stats-section::-webkit-scrollbar {
+  height: 12px;
+}
+
+.stats-section::-webkit-scrollbar-track {
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 6px;
+}
+
+.stats-section::-webkit-scrollbar-thumb {
+  background: rgba(147, 51, 234, 0.2);
+  border-radius: 6px;
+  border: 3px solid rgba(147, 51, 234, 0.05);
+}
+
+.stats-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(147, 51, 234, 0.3);
+}
+
+/* Add subtle animation for modal opening */
+:deep(.v-dialog-transition-enter-active) {
+  transition: all 0.3s ease-out;
+}
+
+:deep(.v-dialog-transition-leave-active) {
+  transition: all 0.2s ease-in;
+}
+
+:deep(.v-dialog-transition-enter-from),
+:deep(.v-dialog-transition-leave-to) {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .stats-section {
+    padding: 1rem;
+  }
+
+  :deep(.v-data-table__th),
+  :deep(.v-data-table__td) {
+    padding: 8px 12px !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+.modal-header {
+  margin-bottom: 2rem;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 2rem;
+  width: 100%;
 }
 
-.header-left {
+.date-status {
+  display: flex;
+  /* flex-direction: column; */
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.game-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  background: rgba(147, 51, 234, 0.1);
+  color: #9333ea;
+}
+
+.game-status.final {
+  background: rgba(22, 163, 74, 0.1);
+  color: rgb(22, 163, 74);
+}
+
+.teams-score-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  margin: 2rem 0;
+  padding: 2rem;
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(147, 51, 234, 0.1);
+}
+
+.team-score {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  padding: 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.team-score.winner {
+  background: rgba(147, 51, 234, 0.1);
+}
+
+.team-info {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.header-left h2 {
-  font-size: 1.5rem;
+.team-name {
+  font-size: 1.25rem;
   font-weight: 600;
   color: #e9d5ff;
-  margin-bottom: 0.75rem;
 }
 
-.bet-btn {
-  min-width: 100px;
+.team-meta {
+  display: flex;
+  gap: 1rem;
+  color: rgba(233, 213, 255, 0.7);
+}
+
+.score {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #e9d5ff;
+}
+
+.score-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+.vs {
+  font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: none;
-  transition: all 0.2s ease;
-  border-radius: 8px;
-  color: #000 !important;
+  color: rgba(233, 213, 255, 0.7);
 }
 
-.bet-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+.game-meta-info {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  color: rgba(233, 213, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.close-btn {
+  color: rgba(233, 213, 255, 0.7) !important;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  color: #e9d5ff !important;
+  transform: scale(1.1);
+}
+
+:deep(.game-details-dialog) {
+  .v-overlay__content {
+    width: 90vw;
+    max-width: 1600px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .teams-score-display {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .team-score {
+    width: 100%;
+  }
+
+  .score-divider {
+    display: none;
+  }
+
+  .game-meta-info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+.modal-team-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  padding: 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.modal-team-score.winner {
+  background: rgba(147, 51, 234, 0.1);
+}
+
+/* Modal Skeleton Loading Styles */
+.modal-skeleton {
+  padding: 2rem;
+  animation: pulse 1.5s infinite;
+}
+
+.skeleton-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.skeleton-title {
+  height: 32px;
+  width: 200px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-status {
+  height: 24px;
+  width: 100px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 16px;
+}
+
+.skeleton-teams-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  margin: 2rem 0;
+  padding: 2rem;
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(147, 51, 234, 0.1);
+}
+
+.skeleton-team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  padding: 1rem;
+}
+
+.skeleton-team-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-team-name {
+  height: 24px;
+  width: 180px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-team-meta {
+  display: flex;
+  gap: 1rem;
+}
+
+.skeleton-team-abbr {
+  height: 16px;
+  width: 40px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-team-conference {
+  height: 16px;
+  width: 80px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-score {
+  height: 48px;
+  width: 60px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+.skeleton-vs {
+  height: 24px;
+  width: 40px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+}
+
+.skeleton-stats {
+  margin-top: 2rem;
+}
+
+.skeleton-stats-title {
+  height: 24px;
+  width: 150px;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-stats-table {
+  background: rgba(147, 51, 234, 0.05);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid rgba(147, 51, 234, 0.1);
+}
+
+.skeleton-table-header {
+  height: 24px;
+  width: 100%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-table-row {
+  height: 16px;
+  width: 100%;
+  background: rgba(147, 51, 234, 0.1);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
 }
 </style> 

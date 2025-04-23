@@ -272,6 +272,8 @@ const seasonErrorMessage = ref('')
 const favoritePlayers = ref(new Set())
 const detailedPlayerStats = ref(null)
 const isInFavoritesView = ref(false)
+const lastFetchTime = ref(0)
+const FETCH_DEBOUNCE_TIME = 500
 
 // Helper function to validate a season
 const isValidSeason = (season) => {
@@ -313,11 +315,11 @@ const generateAvailableSeasons = () => {
 
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Players') {
-    await selectPlayer(item)
-  } else if (type === 'Teams') {
-    router.push('/teams')
-  } else if (type === 'Games') {
-    router.push('/games')
+    console.log('Handling player search selection:', item)
+    // Extract the player data from the item structure
+    const playerData = item.item || item
+    console.log('Player data to select:', playerData)
+    await selectPlayer(playerData, true)  // Set shouldOpenModal to true for search selections
   }
 }
 
@@ -396,7 +398,7 @@ const selectPlayer = async (player, shouldOpenModal = false) => {
     // Fetch stats for the default season
     await fetchDetailedStats()
     
-    // Only open the modal if explicitly requested
+    // Only show the modal if explicitly requested (e.g., from search selection)
     if (shouldOpenModal) {
       showModal.value = true
     }
@@ -454,6 +456,14 @@ const fetchPlayerDetails = async (playerId) => {
 }
 
 const fetchDetailedStats = async () => {
+  // Debounce mechanism to prevent multiple calls in quick succession
+  const now = Date.now()
+  if (now - lastFetchTime.value < FETCH_DEBOUNCE_TIME) {
+    console.log('Debouncing fetchDetailedStats call')
+    return
+  }
+  lastFetchTime.value = now
+  
   try {
     isLoadingStats.value = true
     error.value = null
@@ -584,12 +594,20 @@ onMounted(() => {
     console.log('Received search-grid-update event in Players component:', event.detail)
     handleSearchGridUpdate(event.detail)
   })
+
+  // Add global event listener for search selection
+  window.addEventListener('search-selection', (event) => {
+    console.log('Received search-selection event in Players component:', event.detail)
+    handleSearchSelection(event.detail)
+  })
+  
   window.addEventListener('stats-view-changed', handleStatsViewChanged)
 })
 
 // Update onUnmounted to remove both event listeners
 onUnmounted(() => {
   window.removeEventListener('search-grid-update', (event) => handleSearchGridUpdate(event.detail))
+  window.removeEventListener('search-selection', (event) => handleSearchSelection(event.detail))
   window.removeEventListener('stats-view-changed', handleStatsViewChanged)
 })
 </script>

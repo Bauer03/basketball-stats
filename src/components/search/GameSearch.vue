@@ -119,6 +119,18 @@ export default {
 
       gamesStore.resetPagination()
       await gamesStore.fetchGames(startDate.value, endDate.value)
+      
+      // Emit a search-grid-update event to update the games grid
+      const updateData = {
+        type: 'Games',
+        results: gamesStore.games,
+        query: 'date-range-search'
+      }
+      
+      // Dispatch the event globally
+      window.dispatchEvent(new CustomEvent('search-grid-update', { 
+        detail: updateData
+      }))
     }
 
     const goToNextPage = () => {

@@ -117,7 +117,11 @@ export const useGamesStore = defineStore('games', {
       try {
         const userStore = useUserStore()
         const url = `${API_BASE_URL}/games/${gameId}`
-        console.log('Fetching game details from:', url)
+        console.log('🎮 Fetching game details:', {
+          gameId,
+          url,
+          timestamp: new Date().toISOString()
+        })
 
         const response = await fetch(url, {
           headers: {
@@ -126,15 +130,20 @@ export const useGamesStore = defineStore('games', {
         })
 
         const data = await handleApiResponse(response)
+        console.log('🎮 Game details fetched successfully:', {
+          gameId,
+          status: response.status,
+          timestamp: new Date().toISOString()
+        })
+        
         this.currentGame = data.game
         return data
       } catch (err) {
-        console.error('Error in fetchGameById:', {
+        console.error('🎮 Error fetching game details:', {
+          gameId,
           message: err.message,
           status: err.status,
-          stack: err.stack,
-          response: err.response,
-          gameId
+          timestamp: new Date().toISOString()
         })
         this.error = err.message
         if (err.status === 404) {

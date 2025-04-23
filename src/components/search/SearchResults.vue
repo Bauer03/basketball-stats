@@ -3,6 +3,20 @@
     class="search-results"
     :class="{ loading: isLoading }"
   >
+    <div class="search-header">
+      <div class="search-title">{{ title }}</div>
+      <v-btn
+        v-if="type === 'Games'"
+        color="primary"
+        size="small"
+        class="search-button"
+        @click="handleSearch"
+        :loading="isLoading"
+      >
+        <v-icon left>mdi-magnify</v-icon>
+        Search
+      </v-btn>
+    </div>
     <!-- Teams Results -->
     <div v-if="type === 'Teams'" class="results-section">
       <div class="filters" v-if="!isLoading">
@@ -164,8 +178,21 @@
             </v-select>
           </v-col>
         </v-row>
+        <v-row class="mt-4">
+          <v-col cols="12">
+            <v-btn
+              color="primary"
+              block
+              @click="handleSearch"
+              :loading="localLoading"
+              :disabled="!isDateRangeValid"
+            >
+              Search Games
+            </v-btn>
+          </v-col>
+        </v-row>
       </div>
-      <div v-if="isLoading" class="skeleton-container">
+      <div v-if="localLoading" class="skeleton-container">
         <div v-for="i in 5" :key="`game-skeleton-${i}`" class="skeleton-item game-skeleton">
           <div class="skeleton-lines">
             <div class="skeleton-line"></div>
@@ -173,11 +200,22 @@
           </div>
         </div>
       </div>
-      <div v-else-if="games.length" class="results-list">
-        <div v-for="(game, index) in games" :key="game.id" class="result-item game-item" @click="handleItemSelect(game)" :data-index="index">
+      <div v-else-if="searchResults.length" class="results-list">
+        <div 
+          v-for="(game, index) in searchResults" 
+          :key="game.id" 
+          class="result-item game-item" 
+          @click="handleItemSelect(game)" 
+          :data-index="index"
+        >
           <div class="game-info">
-            <div class="game-teams">{{ game.home_team.abbreviation }} vs {{ game.visitor_team.abbreviation }}</div>
+            <div class="game-teams">
+              {{ game.home_team?.abbreviation || 'TBD' }} vs {{ game.visitor_team?.abbreviation || 'TBD' }}
+            </div>
             <div class="game-date">{{ formatDate(game.date) }}</div>
+            <div class="game-score" v-if="game.home_team_score !== undefined">
+              {{ game.home_team_score }} - {{ game.visitor_team_score }}
+            </div>
           </div>
         </div>
       </div>
@@ -254,6 +292,7 @@
 <script setup>
 import { defineProps, defineEmits, ref, onMounted, watch, computed, nextTick, onUnmounted } from 'vue'
 import api from '@/api/axios'
+import { gamesApi } from '@/services/api/games'
 
 const selectedConference = ref('All')
 const startDate = ref(new Date().toISOString().split('T')[0])
@@ -275,7 +314,8 @@ const emit = defineEmits([
   'team-change',
   'player-team-change',
   'position-change',
-  'refocus'
+  'refocus',
+  'search-select'
 ])
 
 const handleConferenceChange = (value) => {
@@ -453,16 +493,92 @@ watch(showTeamStatsModal, async (newValue) => {
     await fetchTeamDetailedStats();
   }
 });
+
+// Add local loading state
+const localLoading = ref(false)
+const searchResults = ref([])
+
+const handleSearch = async () => {
+  if (!isDateRangeValid.value) return;
+  
+  localLoading.value = true;
+  try {
+    console.log('Searching games with params:', {
+      start_date: startDate.value,
+      end_date: endDate.value,
+      team_ids: selectedTeams.value
+    });
+
+    const response = await gamesApi.getGames({
+      start_date: startDate.value,
+      end_date: endDate.value,
+      team_ids: selectedTeams.value
+    });
+    
+    console.log('Search results:', response);
+    
+    if (response && response.data) {
+      searchResults.value = response.data;
+      if (response.data.length > 0) {
+        emit('search-select', { type: 'Games', item: response.data[0] });
+      }
+    }
+  } catch (error) {
+    console.error('Error searching games:', error);
+  } finally {
+    localLoading.value = false;
+  }
+};
+
+const isDateRangeValid = computed(() => {
+  if (!startDate.value || !endDate.value) return false;
+  return new Date(startDate.value) <= new Date(endDate.value);
+});
+
+const title = computed(() => {
+  switch (props.type) {
+    case 'Teams':
+      return 'Teams'
+    case 'Players':
+      return 'Players'
+    case 'Games':
+      return 'Games'
+    default:
+      return 'Results'
+  }
+})
 </script>
 
 <style scoped>
 .search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--v-surface-variant);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 4px;
   max-height: 400px;
   overflow-y: auto;
-  padding: 1rem;
-  background-color: var(--color-bg-elevated);
-  position: relative;
-  z-index: 9999;
+  z-index: 1000;
+}
+
+.search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--v-border-color);
+}
+
+.search-title {
+  font-weight: 600;
+  color: var(--v-primary-color);
+}
+
+.search-button {
+  margin-left: 8px;
 }
 
 .results-section {

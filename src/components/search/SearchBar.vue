@@ -177,6 +177,65 @@ const handleInput = () => {
 const handleEnter = async (e) => {
   console.log('Enter key pressed')
   e.preventDefault()
+  
+  // For Games search, we want to trigger the search even if the query is empty
+  if (searchType.value === 'Games') {
+    console.log('Games search - triggering search on Enter')
+    try {
+      // Include all current filters in the search
+      const filters = {
+        conference: currentConference.value,
+        ...currentDateRange.value,
+        teams: currentTeams.value,
+        team: currentPlayerTeam.value,
+        position: currentPosition.value
+      }
+      
+      // Use the filtered results from useSearch with all current filters
+      await debouncedSearch(displayQuery.value || '', searchType.value, 0, filters.conference, filters)
+      
+      // Wait for the search results to be updated
+      await nextTick()
+      
+      // Get the results based on search type
+      const results = searchResults.value?.games || []
+      
+      console.log(`Games search results:`, results)
+      
+      const updateData = { 
+        type: searchType.value, 
+        results,
+        query: displayQuery.value || '',
+        shouldOpenModal: false // Don't open modal when pressing enter
+      }
+      
+      console.log('Emitting search-grid-update event with:', updateData)
+      
+      // First dispatch the event globally
+      window.dispatchEvent(new CustomEvent('search-grid-update', { 
+        detail: updateData
+      }))
+
+      // Then navigate to the appropriate route if not already there
+      const route = searchType.value.toLowerCase()
+      if (router.currentRoute.value.path !== `/${route}`) {
+        await router.push(`/${route}`)
+      }
+
+      // After navigation, dispatch the event again to ensure the new view receives it
+      await nextTick()
+      window.dispatchEvent(new CustomEvent('search-grid-update', { 
+        detail: updateData
+      }))
+      
+      return
+    } catch (err) {
+      console.error('Failed to fetch games search results:', err)
+      return
+    }
+  }
+  
+  // For other search types, only proceed if there's a query and not already searching
   if (!displayQuery.value.trim() || isSearching.value) {
     console.log('Search query empty or already searching')
     return
@@ -201,16 +260,15 @@ const handleEnter = async (e) => {
     await nextTick()
     
     // Get the results based on search type
-    const results = searchType.value === 'Teams' ? searchResults.value.teams :
-                   searchType.value === 'Players' ? searchResults.value.players :
-                   searchResults.value.games
-
+    const results = searchResults.value?.[searchType.value.toLowerCase()] || []
+    
     console.log(`${searchType.value} search results:`, results)
     
     const updateData = { 
       type: searchType.value, 
       results,
-      query: displayQuery.value 
+      query: displayQuery.value,
+      shouldOpenModal: false // Don't open modal when pressing enter
     }
     
     console.log('Emitting search-grid-update event with:', updateData)
@@ -231,22 +289,20 @@ const handleEnter = async (e) => {
     window.dispatchEvent(new CustomEvent('search-grid-update', { 
       detail: updateData
     }))
-
   } catch (err) {
     console.error('Failed to fetch search results:', err)
   }
 }
 
 const handleSelect = (item) => {
-  const selectionData = { type: searchType.value, item }
-  console.log('Emitting search-selection event with:', selectionData)
-  window.dispatchEvent(new CustomEvent('search-selection', { 
-    detail: selectionData
+  console.log('Search item selected:', item)
+  window.dispatchEvent(new CustomEvent('search-select', { 
+    detail: { 
+      type: searchType.value,
+      item,
+      shouldOpenModal: true // Modal should open when clicking a result
+    }
   }))
-  displayQuery.value = ''
-  nextTick(() => {
-    showResults.value = false
-  })
 }
 
 const handleFocus = () => {
@@ -310,15 +366,23 @@ const handleEscape = () => {
 }
 
 const handleKeyDown = (e) => {
-  // Prevent default tab behavior
-  if (e.key === 'Tab') {
-    e.preventDefault()
-    cycleSearchType()
-  }
-  // Handle arrow down
-  if (e.key === 'ArrowDown' && showResults.value) {
-    e.preventDefault()
-    emit('move-selection', 'down')
+  if (e.key === 'Enter') {
+    if (searchType.value === 'Games' && searchResults.value?.games?.length > 0) {
+      emit('search-select', {
+        type: 'Games',
+        item: searchResults.value.games
+      });
+    } else if (searchType.value === 'Players' && searchResults.value?.players?.length > 0) {
+      emit('search-select', {
+        type: 'Players',
+        item: searchResults.value.players[0]
+      });
+    } else if (searchType.value === 'Teams' && searchResults.value?.teams?.length > 0) {
+      emit('search-select', {
+        type: 'Teams',
+        item: searchResults.value.teams[0]
+      });
+    }
   }
 }
 
@@ -369,11 +433,14 @@ onMounted(async () => {
     const view = event.detail
     debouncedViewChange(view)
   })
+
+  window.addEventListener('search-enter-pressed', handleEnter)
 })
 
 // Clean up event listeners in onUnmounted
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPress)
+  window.removeEventListener('search-enter-pressed', handleEnter)
 })
 
 // Expose search functionality to parent components
