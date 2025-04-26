@@ -48,9 +48,11 @@
                   <v-icon size="small" class="mr-1">mdi-calendar</v-icon>
                   {{ formatDate(game.date) }}
                 </div>
-                <div class="game-status" :class="game.status.toLowerCase()">
-                  <v-icon size="small" class="mr-1">{{ game.status === 'Final' ? 'mdi-whistle' : 'mdi-clock-outline' }}</v-icon>
-                  {{ game.status }}{{ game.period > 4 ? ` (OT${game.period - 4})` : '' }}
+                <div class="game-status" :class="game.status.toLowerCase().replace(' ', '_')">
+                  <v-icon size="small" class="mr-1">
+                    {{ game.status === 'Final' ? 'mdi-whistle' : 'mdi-clock-outline' }}
+                  </v-icon>
+                  {{ getGameStatus(game) }}
                 </div>
               </div>
               
@@ -133,34 +135,16 @@
             <div class="header-left">
               <h2 class="text-h5">{{ formatDate(selectedGame.date) }}</h2>
             </div>
-            <div class="d-flex gap-3" v-if="selectedGame.status !== 'Final'">
+            <div class="button-container">
               <v-btn
                 color="#9333ea"
-                class="details-btn flex-grow-1"
+                class="details-btn"
                 @click="showGameModal = true"
                 elevation="0"
               >
                 View Detailed Stats
               </v-btn>
-              <v-btn
-                color="#fbbf24"
-                class="bet-btn"
-                @click="handleBet"
-                elevation="0"
-              >
-                Bet
-              </v-btn>
             </div>
-            <v-btn
-              v-else
-              color="#9333ea"
-              block
-              class="details-btn"
-              @click="showGameModal = true"
-              elevation="0"
-            >
-              View Detailed Stats
-            </v-btn>
           </div>
 
           <v-divider class="my-6"></v-divider>
@@ -184,16 +168,12 @@
 
           <div class="game-meta mt-6">
             <div class="meta-item">
-              <v-icon size="20" class="mr-2">mdi-calendar</v-icon>
-              <span>Season {{ selectedGame.season }}</span>
+              <v-icon size="20" class="mr-2">mdi-clock-outline</v-icon>
+              <span>{{ formatGameTime(selectedGame.date) }}</span>
             </div>
             <div class="meta-item">
               <v-icon size="20" class="mr-2">mdi-trophy</v-icon>
               <span>{{ selectedGame.postseason ? 'Playoff Game' : 'Regular Season' }}</span>
-            </div>
-            <div class="meta-item">
-              <v-icon size="20" class="mr-2">mdi-clock-outline</v-icon>
-              <span>{{ selectedGame.time }}</span>
             </div>
           </div>
         </div>
@@ -441,12 +421,13 @@ const isLoadingGameDetails = ref(false)
 
 const startDate = ref((() => {
   const today = new Date()
-  const year = today.getMonth() < 9 ? today.getFullYear() - 1 : today.getFullYear()
-  return `${year}-10-01`
+  return today.toISOString().split('T')[0]
 })())
 
 const endDate = ref((() => {
-  return new Date().toISOString().split('T')[0]
+  const date = new Date()
+  date.setDate(date.getDate() + 7)  // Next 7 days
+  return date.toISOString().split('T')[0]
 })())
 
 // Add event listener for stats-view-changed
@@ -485,11 +466,8 @@ watch(showGameModal, async (isOpen) => {
     try {
       isLoadingGameDetails.value = true
       const gameId = selectedGame.value.id
-      console.log('Opening game modal, fetching details for game:', gameId)
       const response = await api.get(`/games/${gameId}`)
-      console.log('Game details response:', response.data)
       
-      // Update the selected game with the fetched details, preserving team objects
       selectedGame.value = {
         ...selectedGame.value,
         date: response.data.game.date,
@@ -506,14 +484,12 @@ watch(showGameModal, async (isOpen) => {
         },
         playerStats: response.data.playerStats?.map(stat => ({
           ...stat,
-          // Format percentages as decimals if they're not already
           field_goal_percentage: typeof stat.field_goal_percentage === 'string' ? 
             parseFloat(stat.field_goal_percentage) : stat.field_goal_percentage,
           field_goal3_percentage: typeof stat.field_goal3_percentage === 'string' ? 
             parseFloat(stat.field_goal3_percentage) : stat.field_goal3_percentage,
           freethrow_percentage: typeof stat.freethrow_percentage === 'string' ? 
             parseFloat(stat.freethrow_percentage) : stat.freethrow_percentage,
-          // Add DNP status (did not play, eli's note)
           isDNP: !stat.minutes || stat.minutes === "00" || stat.minutes === "0"
         })) || []
       }
@@ -531,19 +507,11 @@ const validateDates = (start, end) => {
     const startDate = new Date(start)
     const endDate = new Date(end)
     
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      console.error('Invalid date format')
-      return false
-    }
-    
-    if (startDate > endDate) {
-      console.error('Start date cannot be after end date')
-      return false
-    }
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return false
+    if (startDate > endDate) return false
     
     return true
   } catch (err) {
-    console.error('Error validating dates:', err)
     return false
   }
 }
@@ -553,9 +521,15 @@ const canGoBack = computed(() => cursorStack.value.length > 0)
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     weekday: 'long',
-    year: 'numeric',
     month: 'long',
     day: 'numeric'
+  })
+}
+
+const formatGameTime = (dateString) => {
+  return new Date(dateString).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
   })
 }
 
@@ -594,19 +568,7 @@ const fetchGames = async (cursor = null) => {
       })
     }
 
-    const url = `${api.defaults.baseURL}/games?${params}`
-    console.log('Games API Request URL:', url)
-    console.log('Request parameters:', {
-      startDate: startDate.value,
-      endDate: endDate.value,
-      perPage,
-      cursor,
-      teamIds: selectedTeams.value
-    })
-
     const response = await api.get('/games', { params })
-    console.log('Games response:', response.data)
-    
     games.value = response.data.data
     hasNextPage.value = !!response.data.meta?.next_cursor
     currentCursor.value = response.data.meta?.next_cursor
@@ -615,7 +577,6 @@ const fetchGames = async (cursor = null) => {
       selectGame(games.value[0])
     }
   } catch (err) {
-    console.error('Error fetching games:', err)
     error.value = 'Failed to load games. Please try again.'
   } finally {
     isLoading.value = false
@@ -642,40 +603,28 @@ const selectGame = (game) => {
 }
 
 const handleSearchSelection = async ({ type, item, shouldOpenModal = false }) => {
-  console.log('Games component received search selection:', { type, item, shouldOpenModal })
-  
   if (type === 'Games') {
-    // Update the games grid with the search results
     if (Array.isArray(item)) {
-      console.log('Updating games grid with array of games:', item)
       games.value = item
       isInFavoritesView.value = false
       
-      // If we have games, select the first one without showing modal
       if (item.length > 0) {
-        console.log('Selecting first game from search results:', item[0])
         selectGame(item[0])
         if (shouldOpenModal) {
           showGameModal.value = true
         }
       }
     } else if (item && item.data) {
-      // Handle the case where item is an object with data property
-      console.log('Updating games grid with games from data property:', item.data)
       games.value = item.data
       isInFavoritesView.value = false
       
-      // If we have games, select the first one without showing modal
       if (item.data.length > 0) {
-        console.log('Selecting first game from search results:', item.data[0])
         selectGame(item.data[0])
         if (shouldOpenModal) {
           showGameModal.value = true
         }
       }
     } else {
-      // If it's a single game, select it and optionally show modal
-      console.log('Selecting single game:', item)
       selectGame(item)
       if (shouldOpenModal) {
         showGameModal.value = true
@@ -689,27 +638,19 @@ const handleSearchSelection = async ({ type, item, shouldOpenModal = false }) =>
 }
 
 const handleSearchGridUpdate = (data) => {
-  console.log('Games view received search grid update:', data)
   if (data.type === 'Games') {
-    // Check if results is an array or has a data property
     const results = Array.isArray(data.results) ? data.results : 
                    (data.results && data.results.data) ? data.results.data : 
                    []
     
-    // Only update if we have a search query
     if (data.query && data.query.trim()) {
-      console.log('Updating games grid with search results:', results)
       games.value = results
       isInFavoritesView.value = false
       
-      // If we have games, select the first one
       if (results.length > 0) {
-        console.log('Selecting first game from search results:', results[0])
         selectGame(results[0])
       }
     } else {
-      // If no search query, fetch all games
-      console.log('No search query, fetching games')
       fetchGames()
     }
   }
@@ -730,6 +671,18 @@ const updateDateRange = async (newStartDate, newEndDate) => {
   startDate.value = newStartDate
   endDate.value = newEndDate
   await fetchGames()
+}
+
+const getGameStatus = (game) => {
+  if (game.status === 'Final') return 'Complete'
+  if (game.status === 'In Progress') return 'Ongoing'
+  
+  const gameTime = new Date(game.date).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    hour12: true
+  }).toLowerCase()
+  
+  return `Scheduled @${gameTime}`
 }
 </script>
 
@@ -812,13 +765,29 @@ const updateDateRange = async (newStartDate, newEndDate) => {
 }
 
 .game-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--radius-sm);
-  background: rgba(147, 51, 234, 0.1);
-  color: var(--color-text);
+  padding: 4px 12px;
+  border-radius: 6px;
   font-weight: 500;
+  font-size: 0.875rem;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.game-status.final {
+  background: rgba(22, 163, 74, 0.1);
+  color: rgb(22, 163, 74);
+}
+
+.game-status.in_progress {
+  background: rgba(234, 179, 8, 0.1);
+  color: rgb(234, 179, 8);
+}
+
+.game-status.scheduled {
+  background: rgba(147, 51, 234, 0.1);
+  color: rgb(147, 51, 234);
 }
 
 .game-teams {
@@ -873,16 +842,6 @@ const updateDateRange = async (newStartDate, newEndDate) => {
   font-weight: bold;
   min-width: 40px;
   text-align: right;
-}
-
-.game-status.final {
-  background: rgba(22, 163, 74, 0.1);
-  color: rgb(22, 163, 74);
-}
-
-.game-status.in_progress {
-  background: rgba(234, 179, 8, 0.1);
-  color: rgb(234, 179, 8);
 }
 
 .game-venue {
@@ -1313,8 +1272,8 @@ const updateDateRange = async (newStartDate, newEndDate) => {
   padding: 0.5rem 1rem;
   border-radius: 8px;
   font-weight: 500;
-  background: rgba(147, 51, 234, 0.1);
-  color: #9333ea;
+  font-size: 0.875rem;
+  gap: 0.5rem;
 }
 
 .game-status.final {
@@ -1583,5 +1542,50 @@ const updateDateRange = async (newStartDate, newEndDate) => {
   background: rgba(147, 51, 234, 0.1);
   border-radius: 4px;
   margin-bottom: 0.5rem;
+}
+
+.bet-btn {
+  min-width: 80px !important;
+  font-weight: 600;
+  background-color: rgba(255, 165, 0, 0.2) !important;
+  color: #FFA500 !important;
+  border: 1px solid rgba(255, 165, 0, 0.3) !important;
+}
+
+.bet-btn:hover {
+  background-color: rgba(255, 165, 0, 0.3) !important;
+  color: #FFB52E !important;
+  border-color: rgba(255, 165, 0, 0.4) !important;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.details-btn {
+  height: 44px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  background-color: #9333ea !important;
+  padding: 0 24px;
+  min-width: 200px;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.details-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  background-color: rgba(147, 51, 234, 0.9) !important;
+}
+
+.button-container {
+  width: 100%;
+  padding: 8px 0;
 }
 </style> 

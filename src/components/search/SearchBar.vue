@@ -28,13 +28,13 @@
           </template>
         </v-text-field>
         <v-btn
-          :color="searchType"
+          color="#9333ea"
           variant="text"
           class="search-type-btn"
           @click="cycleSearchType"
           @mousedown.prevent
         >
-          {{ searchType }}
+          {{ currentSearchType }}
         </v-btn>
       </div>
     </div>
@@ -59,7 +59,7 @@
         >
           <v-card class="search-results-card">
             <SearchResults
-              :type="searchType"
+              :type="currentSearchType"
               :is-loading="isSearching"
               :is-visible="showResults"
               :teams="teams"
@@ -110,10 +110,13 @@ const teams = ref([])
 const players = ref([])
 const games = ref([])
 
-const searchType = computed(() => searchTypes[currentTypeIndex.value])
+const currentSearchType = computed(() => {
+  const type = searchTypes[currentTypeIndex.value]
+  return type || 'Teams'
+})
 
 const placeholderText = computed(() => {
-  switch (searchType.value) {
+  switch (currentSearchType.value) {
     case 'Teams':
       return 'Search for teams...'
     case 'Players':
@@ -125,44 +128,32 @@ const placeholderText = computed(() => {
   }
 })
 
-const cycleSearchType = () => {
+const cycleSearchType = async () => {
+  const oldIndex = currentTypeIndex.value
   currentTypeIndex.value = (currentTypeIndex.value + 1) % searchTypes.length
   const newType = searchTypes[currentTypeIndex.value].toLowerCase()
   
-  // Emit the stats-view-changed event with the new view type
-  window.dispatchEvent(new CustomEvent('stats-view-changed', { 
+  // Dispatch event for other components
+  window.dispatchEvent(new CustomEvent('stats-view-changed', {
     detail: newType
   }))
   
-  // Navigate to the appropriate route
-  switch (newType) {
-    case 'teams':
-      router.push('/teams')
-      break
-    case 'players':
-      router.push('/players')
-      break
-    case 'games':
-      router.push('/games')
-      break
+  // Navigate to new route if needed
+  if (router.currentRoute.value.path !== `/${newType}`) {
+    await router.push(`/${newType}`)
   }
 }
 
 const handleInput = () => {
-  console.log('Input handled, showing results')
   showResults.value = true
 }
 
 const handleEnter = async (e) => {
-  console.log('Enter key pressed')
   e.preventDefault()
   
-  // For Games search, we want to trigger the search even if the query is empty
-  if (searchType.value === 'Games') {
-    console.log('Games search - triggering search on Enter')
+  if (currentSearchType.value === 'Games') {
     try {
       isSearching.value = true
-      // Include all current filters in the search
       const filters = {
         conference: currentConference.value,
         ...currentDateRange.value,
@@ -171,50 +162,39 @@ const handleEnter = async (e) => {
         position: currentPosition.value
       }
       
-      // Make API call directly
       const response = await api.get('/games', { params: filters })
       const results = response.data.data || []
       
-      console.log(`Games search results:`, results)
-      
       const updateData = { 
-        type: searchType.value, 
+        type: currentSearchType.value, 
         results,
         query: displayQuery.value || '',
         shouldOpenModal: false
       }
       
-      // First dispatch the event globally
       window.dispatchEvent(new CustomEvent('search-grid-update', { 
         detail: updateData
       }))
 
-      // Then navigate to the appropriate route if not already there
-      const route = searchType.value.toLowerCase()
+      const route = currentSearchType.value.toLowerCase()
       if (router.currentRoute.value.path !== `/${route}`) {
         await router.push(`/${route}`)
       }
       
       return
     } catch (err) {
-      console.error('Failed to fetch games search results:', err)
+      console.error('Failed to fetch games:', err)
       return
     } finally {
       isSearching.value = false
     }
   }
   
-  // For other search types, only proceed if there's a query
-  if (!displayQuery.value.trim() || isSearching.value) {
-    console.log('Search query empty or already searching')
-    return
-  }
+  if (!displayQuery.value.trim() || isSearching.value) return
   
   try {
     isSearching.value = true
-    console.log('Making API call for search:', displayQuery.value)
     
-    // Include all current filters in the search
     const filters = {
       conference: currentConference.value,
       ...currentDateRange.value,
@@ -223,39 +203,33 @@ const handleEnter = async (e) => {
       position: currentPosition.value
     }
     
-    // Make API call based on search type
     let response
     let results = []
     
-    if (searchType.value === 'Teams') {
+    if (currentSearchType.value === 'Teams') {
       response = await api.get('/teams', { params: { 'team-search': displayQuery.value } })
-      // Filter teams client-side as well to ensure we get the best match
       results = response.data.data.filter(team => 
         team.full_name.toLowerCase().includes(displayQuery.value.toLowerCase()) ||
         team.name.toLowerCase().includes(displayQuery.value.toLowerCase()) ||
         team.abbreviation.toLowerCase().includes(displayQuery.value.toLowerCase())
       )
-    } else if (searchType.value === 'Players') {
+    } else if (currentSearchType.value === 'Players') {
       response = await api.get('/players', { params: { 'name-search': displayQuery.value, ...filters } })
       results = response.data.data || []
     }
     
-    console.log(`${searchType.value} search results:`, results)
-    
     const updateData = { 
-      type: searchType.value, 
+      type: currentSearchType.value, 
       results,
       query: displayQuery.value,
       shouldOpenModal: false
     }
     
-    // First dispatch the event globally
     window.dispatchEvent(new CustomEvent('search-grid-update', { 
       detail: updateData
     }))
 
-    // Then navigate to the appropriate route if not already there
-    const route = searchType.value.toLowerCase()
+    const route = currentSearchType.value.toLowerCase()
     if (router.currentRoute.value.path !== `/${route}`) {
       await router.push(`/${route}`)
     }
@@ -267,10 +241,9 @@ const handleEnter = async (e) => {
 }
 
 const handleSelect = (item) => {
-  console.log('Search item selected:', item)
   window.dispatchEvent(new CustomEvent('search-select', { 
     detail: { 
-      type: searchType.value,
+      type: currentSearchType.value,
       item,
       shouldOpenModal: true
     }
@@ -278,16 +251,12 @@ const handleSelect = (item) => {
 }
 
 const handleFocus = () => {
-  console.log('Search input focused')
   if (displayQuery.value || props.showByDefault) {
-    console.log('Showing results due to focus')
     showResults.value = true
   }
 }
 
 const handleBlur = (e) => {
-  console.log('Search input blur event')
-  // Only hide results if clicking outside both the input and results
   setTimeout(() => {
     const activeElement = document.activeElement
     const clickedElement = e.relatedTarget
@@ -295,13 +264,7 @@ const handleBlur = (e) => {
     const isClickingSearchContainer = searchContainer?.contains(clickedElement)
     const isClickingResults = activeElement?.closest('.search-results-card') || clickedElement?.closest('.search-results-card')
     
-    console.log('Blur check:', {
-      isClickingSearchContainer,
-      isClickingResults
-    })
-    
     if (!isClickingResults && !isClickingSearchContainer) {
-      console.log('Hiding results due to blur')
       showResults.value = false
     }
   }, 0)
@@ -366,6 +329,16 @@ const handleKeyPress = (event) => {
 }
 
 onMounted(async () => {
+  // Initialize search type based on current route
+  const currentPath = router.currentRoute.value.path.slice(1) // Remove leading slash
+  const initialType = currentPath || 'teams'
+  
+  const typeIndex = searchTypes.findIndex(type => type.toLowerCase() === initialType)
+  
+  if (typeIndex !== -1) {
+    currentTypeIndex.value = typeIndex
+  }
+
   await wait(150)
   const input = searchInput.value?.$el?.querySelector('input')
   if (input) {
@@ -375,16 +348,28 @@ onMounted(async () => {
 
   window.addEventListener('keydown', handleKeyPress)
   window.addEventListener('search-enter-pressed', handleEnter)
+  window.addEventListener('search-type-changed', handleSearchTypeChange)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPress)
   window.removeEventListener('search-enter-pressed', handleEnter)
+  window.removeEventListener('search-type-changed', handleSearchTypeChange)
 })
+
+const handleSearchTypeChange = (event) => {
+  const newType = event.detail
+  
+  const newIndex = searchTypes.findIndex(type => type.toLowerCase() === newType.toLowerCase())
+  
+  if (newIndex !== -1) {
+    currentTypeIndex.value = newIndex
+  }
+}
 
 defineExpose({
   searchQuery,
-  searchType
+  currentSearchType
 })
 
 const debouncedViewChange = debounce((view) => {
@@ -402,8 +387,46 @@ const currentPosition = ref(null)
 
 // Add watcher for showResults
 watch(showResults, (newVal) => {
-  console.log('showResults changed:', newVal)
 })
+
+const handleSearchSelection = async ({ type, item }) => {
+  if (type === 'Teams') {
+    const teamData = item.item || item
+    await selectTeam(teamData, true)
+  } else if (type === 'Players') {
+    router.push('/players')
+  } else if (type === 'Games') {
+    router.push('/games')
+  }
+}
+
+const handleSearchGridUpdate = (data) => {
+  if (data.type === 'Teams') {
+    if (data.query && data.query.trim()) {
+      teams.value = data.results
+      isInFavoritesView.value = false
+      
+      if (data.results.length > 0) {
+        selectTeam(data.results[0], false)
+      }
+    } else {
+      fetchTeams()
+    }
+  }
+}
+
+// Add watcher for currentTypeIndex
+watch(currentTypeIndex, (newIndex, oldIndex) => {
+}, { immediate: true })
+
+// Add watcher for route changes
+watch(() => router.currentRoute.value.path, (newPath) => {
+  const type = newPath.slice(1) || 'teams'
+  const typeIndex = searchTypes.findIndex(t => t.toLowerCase() === type)
+  if (typeIndex !== -1 && typeIndex !== currentTypeIndex.value) {
+    currentTypeIndex.value = typeIndex
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>

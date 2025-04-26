@@ -249,7 +249,6 @@ const isInFavoritesView = ref(false)
 
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Teams') {
-    // Extract the team data from the item structure
     const teamData = item.item || item
     await selectTeam(teamData, true)
   } else if (type === 'Players') {
@@ -282,15 +281,8 @@ const toggleFavorite = async (team) => {
 }
 
 const updateTeams = async (newTeams) => {
-  console.log('Teams view received update request:', newTeams)
+  if (!newTeams || !Array.isArray(newTeams) || newTeams.length === 0) return
   
-  // If newTeams is falsy or empty, don't do anything as initialization is handled in onMounted
-  if (!newTeams || !Array.isArray(newTeams) || newTeams.length === 0) {
-    console.log('No teams provided, skipping update')
-    return
-  }
-  
-  // Filter out invalid entries and ensure all required fields are present
   const validTeams = newTeams.filter(team => 
     team && 
     team.id && 
@@ -299,14 +291,10 @@ const updateTeams = async (newTeams) => {
     team.division
   )
   
-  console.log('Valid teams to display:', validTeams)
-  
   teams.value = validTeams
   isInFavoritesView.value = true
   
-  // If we have teams, select the first one without opening modal
   if (validTeams.length > 0) {
-    console.log('Selecting first team:', validTeams[0])
     selectTeam(validTeams[0], false)
   }
 }
@@ -314,34 +302,22 @@ const updateTeams = async (newTeams) => {
 const loadFavoriteTeams = async () => {
   try {
     isLoading.value = true
-    console.log('Loading favorite teams...')
-    
-    // Get favorite team IDs from the store
     const favoriteTeamIds = Array.from(favoritesStore.favoriteTeamIds)
-    console.log('Favorite team IDs:', favoriteTeamIds)
     
     if (!favoriteTeamIds || favoriteTeamIds.length === 0) {
       teams.value = []
       return
     }
     
-    // Fetch details for each favorite team
     const teamDetailsPromises = favoriteTeamIds.map(async (teamId) => {
       try {
         const response = await api.get(`/teams/${teamId}`)
-        console.log(`Team details response for ID ${teamId}:`, response.data)
-        
-        // Extract team data from the response
         const teamData = response.data.team || response.data
-        if (!teamData) {
-          console.error(`Invalid team details response for ID ${teamId}:`, response.data)
-          return null
-        }
-        
-        // Map to consistent team structure
+        if (!teamData || !teamData.id) return null
+
         return {
           id: teamData.id,
-          full_name: teamData.full_name,
+          full_name: teamData.full_name || `${teamData.city} ${teamData.name}`,
           name: teamData.name,
           abbreviation: teamData.abbreviation,
           city: teamData.city,
@@ -349,20 +325,16 @@ const loadFavoriteTeams = async () => {
           division: teamData.division
         }
       } catch (error) {
-        console.error(`Failed to fetch details for team ${teamId}:`, error)
+        console.error(`Failed to fetch team ${teamId}:`, error)
         return null
       }
     })
     
-    // Wait for all team details and filter out failed requests
     const teamDetails = await Promise.all(teamDetailsPromises)
     const validTeams = teamDetails.filter(team => team !== null)
-    console.log('Valid favorite teams loaded:', validTeams)
     
-    // Update the teams array with valid teams
     teams.value = validTeams
     
-    // Select first team if available (without opening modal)
     if (validTeams.length > 0) {
       selectTeam(validTeams[0], false)
     }
@@ -383,9 +355,7 @@ const fetchTeams = async () => {
   
   try {
     const response = await api.get('/teams')
-    console.log('Fetched all teams:', response.data.data)
     teams.value = response.data.data
-    // Find and select the LA Lakers by default, without opening modal
     const lakers = teams.value.find(team => team.full_name === 'Los Angeles Lakers')
     if (lakers) {
       selectedTeam.value = lakers
@@ -399,91 +369,54 @@ const fetchTeams = async () => {
 }
 
 const fetchTeamDetails = async (teamId) => {
+  if (!teamId) return
+  
   isLoadingDetails.value = true
-  console.log('Fetching initial team details:', { teamId })
-  
-  // Skip the API call if teamId is undefined
-  if (!teamId) {
-    console.warn('Skipping team details fetch - teamId is undefined')
-    isLoadingDetails.value = false
-    return
-  }
-  
   try {
     const response = await api.get(`/teams/${teamId}`)
-    console.log('Initial team details API response:', response.data)
     teamDetails.value = response.data
   } catch (err) {
-    console.error('Failed to load initial team details:', {
-      error: err.message,
-      teamId,
-      status: err.response?.status
-    })
+    console.error('Failed to load team details:', err)
   } finally {
     isLoadingDetails.value = false
   }
 }
 
 const selectTeam = async (team, openModal = false) => {
-  if (!team) {
-    console.warn('Cannot select team - team is undefined')
-    return
-  }
+  if (!team) return
   
-  // Handle different team object structures
   const teamId = team.id || (team.item && team.item.id)
   const teamData = team.item || team
   
-  if (!teamId) {
-    console.warn('Cannot fetch team details - team ID is undefined', team)
-    return
-  }
+  if (!teamId) return
   
   selectedTeam.value = teamData
   
-  // Only show modal if explicitly requested
   if (openModal) {
     showTeamModal.value = true
   }
   
-  // Always fetch team details for the side panel
   await fetchTeamDetails(teamId)
 }
 
 const fetchDetailedStats = async () => {
-  if (!selectedTeam.value || !selectedSeason.value) {
-    console.log('Skipping team details fetch - no team or season selected', {
-      team: selectedTeam.value?.id,
-      season: selectedSeason.value
-    })
-    return
-  }
+  if (!selectedTeam.value || !selectedSeason.value) return
   
   isLoadingDetails.value = true
-  detailedTeamStats.value = null // Clear previous stats while loading
+  detailedTeamStats.value = null
   
   try {
     const params = new URLSearchParams()
     params.append('season', selectedSeason.value.toString())
     
     const url = `/teams/${selectedTeam.value.id}?${params.toString()}`
-    console.log('Making request to:', url)
-    
     const response = await api.get(url)
-    console.log('Team details API response:', response.data)
     
     if (response.data.standings) {
       detailedTeamStats.value = response.data.standings
-    } else {
-      console.warn('No standings data in response:', response.data)
     }
   } catch (err) {
-    console.error('Failed to fetch team details:', {
-      error: err.message,
-      teamId: selectedTeam.value.id,
-      season: selectedSeason.value,
-      status: err.response?.status
-    })
+    console.error('Failed to fetch team details:', err)
   } finally {
     isLoadingDetails.value = false
   }
@@ -535,14 +468,8 @@ const handleStatsViewChanged = (event) => {
 const initialize = async () => {
   try {
     isLoading.value = true
-    
-    // First load favorites from the store
     await favoritesStore.loadFavorites()
-    
-    // Then load favorite teams
     await loadFavoriteTeams()
-    
-    // Finally load all teams
     await fetchTeams()
   } catch (error) {
     console.error('Error during initialization:', error)
@@ -563,44 +490,15 @@ onUnmounted(() => {
 })
 
 const handleSearchGridUpdate = (data) => {
-  console.log('Teams view received search grid update:', data)
   if (data.type === 'Teams') {
-    // Only update if we have a search query
     if (data.query && data.query.trim()) {
-      console.log('Updating teams grid with search results:', data.results)
       teams.value = data.results
       isInFavoritesView.value = false
       
-      // If we have teams, select the most relevant one based on the search query
       if (data.results.length > 0) {
-        // Find the team that best matches the search query
-        const query = data.query.toLowerCase()
-        const bestMatch = data.results.reduce((best, team) => {
-          const nameMatch = team.full_name.toLowerCase().includes(query)
-          const abbreviationMatch = team.abbreviation.toLowerCase().includes(query)
-          
-          // If current team is an exact match, it's the best
-          if (team.full_name.toLowerCase() === query || 
-              team.abbreviation.toLowerCase() === query) {
-            return team
-          }
-          
-          // If current team matches and best doesn't, current is better
-          if ((nameMatch || abbreviationMatch) && 
-              !(best.full_name.toLowerCase().includes(query) || 
-                best.abbreviation.toLowerCase().includes(query))) {
-            return team
-          }
-          
-          return best
-        }, data.results[0])
-        
-        console.log('Selected best matching team:', bestMatch.full_name)
-        selectTeam(bestMatch, false)
+        selectTeam(data.results[0], false)
       }
     } else {
-      // If no search query, fetch all teams
-      console.log('No search query, fetching all teams')
       fetchTeams()
     }
   }

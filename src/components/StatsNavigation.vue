@@ -44,19 +44,23 @@ const activeView = ref('teams')
 
 const setActiveView = (view) => {
   activeView.value = view
-  // emit a custom event that will be caught by the parent component
+  router.push(`/${view}`)
   window.dispatchEvent(new CustomEvent('stats-view-changed', { detail: view }))
+  window.dispatchEvent(new CustomEvent('search-type-changed', { detail: view }))
 }
 
-// Initialize view based on route
+// Update the watch to also sync search type
 watch(() => router.currentRoute.value.path, (path) => {
+  let view = 'teams'
   if (path.includes('/teams')) {
-    setActiveView('teams')
+    view = 'teams'
   } else if (path.includes('/games')) {
-    setActiveView('games')
+    view = 'games'
   } else if (path.includes('/players')) {
-    setActiveView('players')
+    view = 'players'
   }
+  activeView.value = view
+  window.dispatchEvent(new CustomEvent('search-type-changed', { detail: view }))
 }, { immediate: true })
 </script>
 

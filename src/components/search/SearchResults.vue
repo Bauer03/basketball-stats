@@ -226,10 +226,7 @@ const handleDateChange = () => {
     const start = new Date(startDate.value)
     const end = new Date(endDate.value)
     
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      console.error('Invalid date format')
-      return
-    }
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return
 
     const formattedStartDate = start.toISOString().split('T')[0]
     const formattedEndDate = end.toISOString().split('T')[0]

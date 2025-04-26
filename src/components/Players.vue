@@ -15,7 +15,7 @@
 
         <div v-else>
           <div v-if="isLoading" class="players-grid">
-            <div v-for="i in 6" :key="`skeleton-${i}`" class="player-card">
+            <div v-for="i in 25" :key="`skeleton-${i}`" class="player-card">
               <v-card-text class="player-card-content">
                 <div class="skeleton-info">
                   <div class="skeleton-name"></div>
@@ -316,32 +316,22 @@ const generateAvailableSeasons = () => {
 
 const handleSearchSelection = async ({ type, item }) => {
   if (type === 'Players') {
-    console.log('Handling player search selection:', item)
-    // Extract the player data from the item structure
     const playerData = item.item || item
-    console.log('Player data to select:', playerData)
-    await selectPlayer(playerData, true)  // Set shouldOpenModal to true for search selections
+    await selectPlayer(playerData, true)
   }
 }
 
 const handleSearchGridUpdate = (data) => {
-  console.log('Players component received search grid update:', data)
   if (data.type === 'Players' && Array.isArray(data.results)) {
-    // Only update if we have a search query
     if (data.query && data.query.trim()) {
-      console.log('Updating players grid with search results:', data.results.length, 'players')
       players.value = data.results
       isInFavoritesView.value = false
-      error.value = null // Clear any previous errors
+      error.value = null
       
-      // If we have players, select the first one
       if (data.results.length > 0) {
-        console.log('Selecting first player from search results:', data.results[0].first_name, data.results[0].last_name)
         selectPlayer(data.results[0], false)
       }
     } else {
-      // If no search query, fetch all players
-      console.log('No search query, fetching all players')
       fetchPlayers()
     }
   }
@@ -371,45 +361,23 @@ defineExpose({
 })
 
 const selectPlayer = async (player, shouldOpenModal = false) => {
-  if (!player?.id) {
-    console.warn('Attempted to select player without ID:', player);
-    // this is just a warning of attempt at accessing player without ID.
-    return
-  }
+  if (!player?.id) return
   
-  console.log('Selecting player:', player)
   selectedPlayer.value = player
-  
-  // Reset selected seasons and stats when selecting a new player
   selectedSeasons.value = []
   playerStats.value = []
-  
-  // Always set all NBA seasons as available
   availableSeasons.value = generateAllNBASeasons()
   
   try {
-    console.log('Fetching player stats for ID:', player.id)
-    // Use the player's draft year as the default season, or current season if not drafted
     const defaultSeason = player.draft_year || CURRENT_SEASON
-    console.log('Using default season:', defaultSeason)
-    
-    // Set the default season as the initial selection
     selectedSeasons.value = [defaultSeason]
-    
-    // Fetch stats for the default season
     await fetchDetailedStats()
     
-    // Only show the modal if explicitly requested (e.g., from search selection)
     if (shouldOpenModal) {
       showModal.value = true
     }
   } catch (err) {
     console.error('Failed to fetch player stats:', err)
-    console.error('Error details:', {
-      status: err.response?.status,
-      data: err.response?.data,
-      config: err.config
-    })
     error.value = 'Failed to load player statistics'
   }
 }
@@ -420,25 +388,19 @@ const fetchPlayers = async () => {
   isInFavoritesView.value = false
   
   try {
-    console.log('Fetching all players...')
     const response = await api.get('/players')
-    console.log('Players API response:', response.data)
     
     if (response.data && Array.isArray(response.data.data)) {
       players.value = response.data.data
-      console.log('Successfully loaded players:', players.value.length)
       
-      // If we have players, select the first one
       if (players.value.length > 0) {
         selectedPlayer.value = players.value[0]
         await fetchPlayerDetails(players.value[0].id)
       }
     } else {
-      console.error('Invalid API response structure:', response.data)
       error.value = 'Invalid data received from server'
     }
   } catch (err) {
-    console.error('Failed to load players:', err)
     error.value = err.message || 'Failed to load players. Please try again.'
   } finally {
     isLoading.value = false
@@ -457,35 +419,21 @@ const fetchPlayerDetails = async (playerId) => {
 }
 
 const fetchDetailedStats = async () => {
-  // Debounce mechanism to prevent multiple calls in quick succession
   const now = Date.now()
-  if (now - lastFetchTime.value < FETCH_DEBOUNCE_TIME) {
-    console.log('Debouncing fetchDetailedStats call')
-    return
-  }
+  if (now - lastFetchTime.value < FETCH_DEBOUNCE_TIME) return
   lastFetchTime.value = now
   
   try {
     isLoadingStats.value = true
     error.value = null
     
-    console.log('Fetching detailed stats for player:', selectedPlayer.value.id)
-    console.log('Selected seasons:', selectedSeasons.value)
-    
-    // Create an array of promises for each season
     const promises = selectedSeasons.value.map(season => {
       const url = `/players/${selectedPlayer.value.id}`
-      console.log('Making request to:', url, 'with season:', season)
-      return api.get(url, {
-        params: { season }
-      })
+      return api.get(url, { params: { season } })
     })
     
-    // Wait for all requests to complete
     const responses = await Promise.all(promises)
-    console.log('Got responses:', responses.map(r => r.data))
     
-    // Process all responses and extract stats
     const allStats = responses
       .map(response => {
         const stats = response.data.stats?.data?.[0]
@@ -498,28 +446,20 @@ const fetchDetailedStats = async () => {
         return null
       })
       .filter(Boolean)
-      .sort((a, b) => b.season - a.season) // Sort by season descending
+      .sort((a, b) => b.season - a.season)
     
-    console.log('Processed stats:', allStats)
     playerStats.value = allStats
     
-    // Set the active tab to the most recent season
     if (allStats.length > 0) {
       activeSeasonTab.value = allStats[0].season
     }
     
-    // Update player details with the most recent data
     const mostRecentResponse = responses.find(r => r.data.stats?.data?.[0]?.season === Math.max(...selectedSeasons.value))
     if (mostRecentResponse?.data.player?.data) {
       selectedPlayer.value = mostRecentResponse.data.player.data
     }
   } catch (err) {
     console.error('Failed to fetch player stats:', err)
-    console.error('Error details:', {
-      status: err.response?.status,
-      data: err.response?.data,
-      config: err.config
-    })
     error.value = 'Failed to load player statistics'
     playerStats.value = []
     activeSeasonTab.value = null
@@ -558,40 +498,32 @@ const toggleFavorite = async (player) => {
 const loadFavoritePlayers = async () => {
   try {
     isLoading.value = true
-    
-    // Get favorite player IDs from the store
     const favoritePlayerIds = Array.from(favoritesStore.favoritePlayerIds)
-    console.log('Favorite player IDs:', favoritePlayerIds)
     
     if (!favoritePlayerIds || favoritePlayerIds.length === 0) {
       players.value = []
       return
     }
     
-    // Fetch details for each favorite player
     const playerDetailsPromises = favoritePlayerIds.map(async (playerId) => {
       try {
         const response = await api.get(`/players/${playerId}`)
         if (!response.data || !response.data.player) {
-          console.error(`Invalid player details response for ID ${playerId}:`, response.data)
+          console.error(`Invalid player details response for ID ${playerId}`)
           return null
         }
         return response.data.player
       } catch (error) {
-        console.error(`Failed to fetch details for player ${playerId}:`, error)
+        console.error(`Failed to fetch player ${playerId}:`, error)
         return null
       }
     })
     
-    // Wait for all player details and filter out failed requests
     const playerDetails = await Promise.all(playerDetailsPromises)
     const validPlayers = playerDetails.filter(player => player !== null)
-    console.log('Valid favorite players loaded:', validPlayers)
     
-    // Update the players array with valid players
     players.value = validPlayers
     
-    // Select first player if available (without opening modal)
     if (validPlayers.length > 0) {
       selectPlayer(validPlayers[0], false)
     }
@@ -602,24 +534,14 @@ const loadFavoritePlayers = async () => {
   }
 }
 
-// Add favorites loading to onMounted
+// Initialize component
 onMounted(async () => {
-  console.log('Players component mounted')
   await favoritesStore.loadFavorites()
   await loadFavoritePlayers()
   await fetchPlayers()
   
-  // Add global event listeners
-  window.addEventListener('search-grid-update', (event) => {
-    console.log('Received search-grid-update event in Players component:', event.detail)
-    handleSearchGridUpdate(event.detail)
-  })
-
-  window.addEventListener('search-selection', (event) => {
-    console.log('Received search-selection event in Players component:', event.detail)
-    handleSearchSelection(event.detail)
-  })
-  
+  window.addEventListener('search-grid-update', (event) => handleSearchGridUpdate(event.detail))
+  window.addEventListener('search-selection', (event) => handleSearchSelection(event.detail))
   window.addEventListener('stats-view-changed', handleStatsViewChanged)
 })
 

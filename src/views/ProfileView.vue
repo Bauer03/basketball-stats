@@ -210,10 +210,13 @@ const handleDeleteAccount = async () => {
     deleteLoading.value = true
     await authStore.deleteAccount()
     showSuccess('Account deleted successfully')
-    router.push('/login')
   } catch (error) {
     console.error('Failed to delete account:', error)
-    showError(error.response?.data?.message || 'Failed to delete account')
+    if (error.response?.status === 500) {
+      showError('Internal server error. Please try again later.')
+    } else {
+      showError(error.response?.data?.message || 'Failed to delete account')
+    }
   } finally {
     deleteLoading.value = false
     confirmDeleteDialog.value = false
