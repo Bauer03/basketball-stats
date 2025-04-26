@@ -3,23 +3,9 @@
     class="search-results"
     :class="{ loading: isLoading }"
   >
-    <div class="search-header">
-      <div class="search-title">{{ title }}</div>
-      <v-btn
-        v-if="type === 'Games'"
-        color="primary"
-        size="small"
-        class="search-button"
-        @click="handleSearch"
-        :loading="isLoading"
-      >
-        <v-icon left>mdi-magnify</v-icon>
-        Search
-      </v-btn>
-    </div>
-    <!-- Teams Results -->
+    <!-- Teams Filters -->
     <div v-if="type === 'Teams'" class="results-section">
-      <div class="filters" v-if="!isLoading">
+      <div class="filters">
         <v-select
           v-model="selectedConference"
           :items="['All', 'East', 'West']"
@@ -28,29 +14,15 @@
           density="comfortable"
           hide-details
           bg-color="rgba(147, 51, 234, 0.1)"
-          class="mb-4 conference-select"
+          class="conference-select"
           @update:model-value="handleConferenceChange"
         ></v-select>
       </div>
-      <div v-if="processedTeams.length > 0" class="results-list">
-        <div v-for="(team, index) in processedTeams" :key="team.id" class="result-item team-item" @click="handleItemSelect(team)" :data-index="index">
-          <div class="team-logo">
-            <!-- Add team logo here -->
-          </div>
-          <div class="team-info">
-            <div class="team-name">{{ team.name }}</div>
-            <div class="team-conference">{{ team.conference }}</div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="no-results">
-        No teams found
-      </div>
     </div>
 
-    <!-- Players Results -->
+    <!-- Players Filters -->
     <div v-else-if="type === 'Players'" class="results-section">
-      <div class="filters" v-if="!isLoading">
+      <div class="filters">
         <v-row>
           <v-col cols="12" sm="6">
             <v-select
@@ -64,7 +36,6 @@
               hide-details
               clearable
               bg-color="rgba(147, 51, 234, 0.1)"
-              class="mb-4"
               @update:model-value="handlePlayerTeamChange"
             ></v-select>
           </v-col>
@@ -78,49 +49,16 @@
               hide-details
               clearable
               bg-color="rgba(147, 51, 234, 0.1)"
-              class="mb-4"
               @update:model-value="handlePositionChange"
             ></v-select>
           </v-col>
         </v-row>
       </div>
-      <div v-if="isLoading" class="skeleton-container">
-        <div v-for="i in 5" :key="`player-skeleton-${i}`" class="skeleton-item player-skeleton">
-          <div class="skeleton-circle"></div>
-          <div class="skeleton-lines">
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line short"></div>
-          </div>
-        </div>
-      </div>
-      <div v-else-if="players.length" class="results-list">
-        <div 
-          v-for="(player, index) in players" 
-          :key="player.id" 
-          class="result-item player-item" 
-          @click.stop="handleItemSelect(player)" 
-          :data-index="index"
-        >
-          <div class="player-avatar">
-            <!-- Add player avatar here -->
-          </div>
-          <div class="player-info">
-            <div class="player-name">{{ player.first_name }} {{ player.last_name }}</div>
-            <div class="player-details">
-              <span class="player-position">{{ player.position }}</span>
-              <span class="player-team">{{ player.team?.full_name || player.team?.name }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="no-results">
-        No players found
-      </div>
     </div>
 
-    <!-- Games Results -->
+    <!-- Games Filters -->
     <div v-else-if="type === 'Games'" class="results-section">
-      <div class="filters" v-if="!isLoading">
+      <div class="filters">
         <v-row class="date-filters-row">
           <v-col cols="12" sm="6">
             <v-text-field
@@ -147,7 +85,7 @@
             ></v-text-field>
           </v-col>
         </v-row>
-        <v-row class="teams-filter-row mt-4">
+        <v-row class="teams-filter-row">
           <v-col cols="12">
             <v-select
               v-model="selectedTeams"
@@ -178,49 +116,6 @@
             </v-select>
           </v-col>
         </v-row>
-        <v-row class="mt-4">
-          <v-col cols="12">
-            <v-btn
-              color="primary"
-              block
-              @click="handleSearch"
-              :loading="localLoading"
-              :disabled="!isDateRangeValid"
-            >
-              Search Games
-            </v-btn>
-          </v-col>
-        </v-row>
-      </div>
-      <div v-if="localLoading" class="skeleton-container">
-        <div v-for="i in 5" :key="`game-skeleton-${i}`" class="skeleton-item game-skeleton">
-          <div class="skeleton-lines">
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line medium"></div>
-          </div>
-        </div>
-      </div>
-      <div v-else-if="searchResults.length" class="results-list">
-        <div 
-          v-for="(game, index) in searchResults" 
-          :key="game.id" 
-          class="result-item game-item" 
-          @click="handleItemSelect(game)" 
-          :data-index="index"
-        >
-          <div class="game-info">
-            <div class="game-teams">
-              {{ game.home_team?.abbreviation || 'TBD' }} vs {{ game.visitor_team?.abbreviation || 'TBD' }}
-            </div>
-            <div class="game-date">{{ formatDate(game.date) }}</div>
-            <div class="game-score" v-if="game.home_team_score !== undefined">
-              {{ game.home_team_score }} - {{ game.visitor_team_score }}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="no-results">
-        No games found
       </div>
     </div>
 
@@ -298,7 +193,7 @@ const selectedConference = ref('All')
 const startDate = ref(new Date().toISOString().split('T')[0])
 const endDate = ref((() => {
   const date = new Date()
-  date.setDate(date.getDate() + 7) // Add 7 days to today
+  date.setDate(date.getDate() + 7)
   return date.toISOString().split('T')[0]
 })())
 const selectedTeams = ref([])
@@ -306,6 +201,7 @@ const selectedTeam = ref(null)
 const selectedPosition = ref(null)
 const teams = ref([])
 const positions = ['PG', 'SG', 'SF', 'PF', 'C']
+const localLoading = ref(false)
 
 const emit = defineEmits([
   'select', 
@@ -337,8 +233,6 @@ const handleDateChange = () => {
 
     const formattedStartDate = start.toISOString().split('T')[0]
     const formattedEndDate = end.toISOString().split('T')[0]
-
-    console.log('Emitting date change:', { startDate: formattedStartDate, endDate: formattedEndDate })
     
     emit('date-change', { 
       startDate: formattedStartDate, 
@@ -354,9 +248,6 @@ const handleTeamChange = (value) => {
   const teamIds = Array.isArray(value) 
     ? value.map(team => typeof team === 'object' ? team.id : team)
     : []
-  
-  console.log('Selected teams:', value)
-  console.log('Emitting team IDs:', teamIds)
   
   emit('team-change', teamIds)
   emit('refocus')
@@ -399,7 +290,23 @@ const props = defineProps({
   }
 })
 
-// Add computed property for teams
+// Add watchers for debugging
+watch(() => props.isVisible, (newVal) => {
+  console.log('SearchResults visibility changed:', newVal)
+})
+
+watch(() => props.teams, (newVal) => {
+  console.log('Teams data updated:', newVal)
+})
+
+watch(() => props.players, (newVal) => {
+  console.log('Players data updated:', newVal)
+})
+
+watch(() => props.games, (newVal) => {
+  console.log('Games data updated:', newVal)
+})
+
 const processedTeams = computed(() => {
   const teamsData = props.teams
   const teamsArray = Array.isArray(teamsData) ? [...teamsData] : 
@@ -417,7 +324,6 @@ const formatDate = (date) => {
 }
 
 const fetchTeams = async () => {
-  // Only fetch teams if we don't have any yet
   if (teams.value.length === 0) {
     try {
       const response = await api.get('/teams')
@@ -428,21 +334,11 @@ const fetchTeams = async () => {
   }
 }
 
-// Add watcher for type changes
 watch(() => props.type, async (newType) => {
   if (newType === 'Games' || newType === 'Players') {
     await fetchTeams()
   }
 }, { immediate: true })
-
-// Update watchers to debug data
-watch(() => props.games, (newGames) => {
-  console.log('Games data in SearchResults:', newGames)
-}, { deep: true })
-
-watch(() => props.teams, (newTeams) => {
-  console.log('Teams data in SearchResults:', newTeams)
-}, { deep: true })
 
 const showTeamStatsModal = ref(false)
 const selectedItem = ref(null)
@@ -452,7 +348,6 @@ const isLoadingDetails = ref(false)
 const CURRENT_SEASON = 2024
 const NBA_START_YEAR = 1946
 
-// Generate available seasons
 const availableSeasons = computed(() => {
   const seasons = []
   for (let year = CURRENT_SEASON; year >= NBA_START_YEAR; year--) {
@@ -464,7 +359,6 @@ const availableSeasons = computed(() => {
 const selectedSeason = ref(2024)
 
 const handleItemSelect = (item) => {
-  console.log('Item selected:', item)
   emit('select', { type: props.type, item })
 }
 
@@ -487,53 +381,37 @@ const fetchTeamDetailedStats = async () => {
   }
 };
 
-// Update watchers
 watch(showTeamStatsModal, async (newValue) => {
   if (newValue && selectedItem.value) {
     await fetchTeamDetailedStats();
   }
 });
 
-// Add local loading state
-const localLoading = ref(false)
-const searchResults = ref([])
-
 const handleSearch = async () => {
-  if (!isDateRangeValid.value) return;
+  if (!isDateRangeValid.value) return
   
-  localLoading.value = true;
+  localLoading.value = true
   try {
-    console.log('Searching games with params:', {
-      start_date: startDate.value,
-      end_date: endDate.value,
-      team_ids: selectedTeams.value
-    });
-
     const response = await gamesApi.getGames({
       start_date: startDate.value,
       end_date: endDate.value,
       team_ids: selectedTeams.value
-    });
-    
-    console.log('Search results:', response);
+    })
     
     if (response && response.data) {
-      searchResults.value = response.data;
-      if (response.data.length > 0) {
-        emit('search-select', { type: 'Games', item: response.data[0] });
-      }
+      emit('search-select', { type: 'Games', item: response.data })
     }
   } catch (error) {
-    console.error('Error searching games:', error);
+    console.error('Error searching games:', error)
   } finally {
-    localLoading.value = false;
+    localLoading.value = false
   }
-};
+}
 
 const isDateRangeValid = computed(() => {
-  if (!startDate.value || !endDate.value) return false;
-  return new Date(startDate.value) <= new Date(endDate.value);
-});
+  if (!startDate.value || !endDate.value) return false
+  return new Date(startDate.value) <= new Date(endDate.value)
+})
 
 const title = computed(() => {
   switch (props.type) {
@@ -551,137 +429,91 @@ const title = computed(() => {
 
 <style scoped>
 .search-results {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--v-surface-variant);
+  background: var(--background-dark, #1a1a1a);
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin-top: 4px;
   max-height: 400px;
   overflow-y: auto;
-  z-index: 1000;
-}
-
-.search-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--v-border-color);
-}
-
-.search-title {
-  font-weight: 600;
-  color: var(--v-primary-color);
-}
-
-.search-button {
-  margin-left: 8px;
+  z-index: 100;
 }
 
 .results-section {
-  padding: 0.5rem;
-  position: relative;
-  z-index: 9999;
-}
-
-.result-item {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 0.5rem;
-  position: relative;
-  z-index: 9999;
-}
-
-.result-item:hover {
-  background-color: var(--searchbar-bg-hover);
+  padding: 1rem;
+  background: var(--background-dark, #1a1a1a);
 }
 
 .filters {
   position: relative;
-  z-index: 9999;
-  margin-bottom: 1rem;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-:deep(.v-select) {
-  position: relative;
-  z-index: 9999;
+:deep(.v-field) {
+  background: rgba(147, 51, 234, 0.1) !important;
+  border-color: rgba(147, 51, 234, 0.2) !important;
 }
 
-:deep(.v-menu__content) {
-  z-index: 9999 !important;
+:deep(.v-field:hover) {
+  border-color: rgba(147, 51, 234, 0.3) !important;
 }
 
-.no-results {
-  padding: 1rem;
-  text-align: center;
-  color: var(--color-text-muted);
+:deep(.v-field--focused) {
+  border-color: #9333ea !important;
 }
 
-/* Skeleton styles */
-.skeleton-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+:deep(.v-label) {
+  color: rgba(233, 213, 255, 0.7) !important;
 }
 
-.skeleton-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem;
-  background-color: var(--searchbar-bg);
-  border-radius: var(--radius-md);
-  animation: pulse 1.5s infinite;
+:deep(.v-field__input) {
+  color: #e9d5ff !important;
 }
 
-.skeleton-circle {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--searchbar-bg-hover);
+:deep(.v-select__selection) {
+  color: #e9d5ff !important;
 }
 
-.skeleton-lines {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.team-chip {
+  background: rgba(147, 51, 234, 0.15);
+  color: #e9d5ff;
+  border: 1px solid rgba(147, 51, 234, 0.3);
 }
 
-.skeleton-line {
-  height: 12px;
-  background-color: var(--searchbar-bg-hover);
-  border-radius: var(--radius-sm);
+:deep(.v-chip__close) {
+  color: #e9d5ff;
+  opacity: 0.7;
 }
 
-.skeleton-line.short {
-  width: 60%;
+:deep(.v-chip__close:hover) {
+  opacity: 1;
 }
 
-.skeleton-line.medium {
-  width: 80%;
+/* Date picker styles */
+:deep(.date-filter input[type="date"]) {
+  color: #e9d5ff !important;
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 1;
-  }
+:deep(.date-filter input[type="date"]::-webkit-calendar-picker-indicator) {
+  filter: invert(1) hue-rotate(180deg) brightness(1.5);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+:deep(.date-filter input[type="date"]::-webkit-calendar-picker-indicator:hover) {
+  opacity: 1;
+}
+
+/* Row spacing */
+.date-filters-row,
+.teams-filter-row {
+  margin: 0;
+}
+
+.teams-filter-row {
+  margin-top: 1rem;
 }
 
 /* Team Styles */
@@ -780,132 +612,6 @@ const title = computed(() => {
 
 :deep(.conference-select .v-field) {
   padding-right: 0 !important;
-}
-
-.date-filters-row,
-.teams-filter-row {
-  margin: 0;
-}
-
-.teams-filter-row {
-  margin-top: 1rem;
-}
-
-/* Add styles for team chips */
-:deep(.team-chip) {
-  background: rgba(147, 51, 234, 0.15);
-  color: #e9d5ff;
-  border: 1px solid rgba(147, 51, 234, 0.3);
-  margin: 1px;
-  padding: 0 8px;
-}
-
-:deep(.team-chip .v-chip__close) {
-  opacity: 0.7;
-  color: #e9d5ff;
-}
-
-:deep(.team-chip .v-chip__close:hover) {
-  opacity: 1;
-}
-
-:deep(.v-select .v-select__content) {
-  background: #1a1a1a;
-  border: 1px solid rgba(147, 51, 234, 0.2);
-  border-radius: 8px;
-}
-
-:deep(.v-select .v-select__selection) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-:deep(.teams-filter .v-field__input) {
-  min-height: 56px;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-
-:deep(.v-select__selection-text) {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 4px 0;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .date-filters-row > .v-col,
-  .teams-filter-row > .v-col {
-    padding: 8px;
-  }
-  
-  :deep(.team-chip) {
-    margin: 1px;
-  }
-}
-
-/* Update existing styles for consistency */
-:deep(.v-text-field.date-filter .v-field),
-:deep(.v-select.teams-filter .v-field) {
-  border-radius: 12px;
-  background: rgba(147, 51, 234, 0.1) !important;
-  border-color: rgba(147, 51, 234, 0.2) !important;
-  height: 44px;
-  min-height: 44px !important;
-  padding: 2px 8px !important;
-}
-
-:deep(.date-filter) {
-  .v-field__input {
-    color: #e9d5ff !important;
-    font-size: 0.95rem;
-    font-weight: 500;
-    min-height: 44px !important;
-    padding: 2px 8px !important;
-  }
-
-  .v-field__field {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-  }
-
-  .v-field {
-    min-height: 44px !important;
-  }
-
-  .v-field__outline {
-    color: rgba(147, 51, 234, 0.2) !important;
-  }
-
-  .v-field__outline__start,
-  .v-field__outline__end,
-  .v-field__outline__notch {
-    border-color: rgba(147, 51, 234, 0.2) !important;
-  }
-
-  &:hover .v-field__outline {
-    color: rgba(147, 51, 234, 0.3) !important;
-  }
-
-  .v-field--focused .v-field__outline {
-    color: #9333ea !important;
-  }
-
-  .v-label {
-    color: rgba(233, 213, 255, 0.7) !important;
-  }
-
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) hue-rotate(180deg) brightness(1.5);
-    opacity: 0.7;
-    cursor: pointer;
-  }
-
-  input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
-  }
 }
 
 .details-modal {

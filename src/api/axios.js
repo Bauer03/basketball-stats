@@ -58,4 +58,9 @@ api.getFavoritePlayers = async () => {
   return await api.get('/favorite-players')
 }
 
+// User Account Management
+api.deleteAccount = async () => {
+  return await api.delete('/user/me')
+}
+
 export default api 

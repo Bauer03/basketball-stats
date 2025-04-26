@@ -57,6 +57,48 @@
               </v-btn>
             </v-form>
 
+            <v-divider class="my-6" color="rgba(147, 51, 234, 0.2)"></v-divider>
+            
+            <div class="danger-zone">
+              <h3 class="text-h6 font-weight-bold mb-4">Danger Zone</h3>
+              <v-btn
+                color="error"
+                variant="outlined"
+                :loading="deleteLoading"
+                @click="confirmDeleteDialog = true"
+                class="delete-btn"
+              >
+                Delete Account
+              </v-btn>
+            </div>
+
+            <v-dialog v-model="confirmDeleteDialog" max-width="500">
+              <v-card class="delete-dialog">
+                <v-card-title class="text-h5">Delete Account</v-card-title>
+                <v-card-text>
+                  Are you sure you want to delete your account? This action cannot be undone.
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn
+                    color="grey"
+                    variant="text"
+                    @click="confirmDeleteDialog = false"
+                  >
+                    Cancel
+                  </v-btn>
+                  <v-btn
+                    color="error"
+                    variant="text"
+                    :loading="deleteLoading"
+                    @click="handleDeleteAccount"
+                  >
+                    Delete
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
             <v-snackbar
               v-model="snackbar.show"
               :color="snackbar.color"
@@ -75,9 +117,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
+import { useRouter } from 'vue-router'
 import api from '@/api/axios'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const form = ref({
   username: '',
@@ -86,6 +130,8 @@ const form = ref({
 })
 
 const loading = ref(false)
+const deleteLoading = ref(false)
+const confirmDeleteDialog = ref(false)
 const snackbar = ref({
   show: false,
   text: '',
@@ -159,6 +205,21 @@ const showError = (text) => {
   }
 }
 
+const handleDeleteAccount = async () => {
+  try {
+    deleteLoading.value = true
+    await authStore.deleteAccount()
+    showSuccess('Account deleted successfully')
+    router.push('/login')
+  } catch (error) {
+    console.error('Failed to delete account:', error)
+    showError(error.response?.data?.message || 'Failed to delete account')
+  } finally {
+    deleteLoading.value = false
+    confirmDeleteDialog.value = false
+  }
+}
+
 onMounted(() => {
   fetchProfile()
 })
@@ -227,5 +288,33 @@ onMounted(() => {
 .save-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
+}
+
+.danger-zone {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: rgba(220, 38, 38, 0.05);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.delete-btn {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: none;
+}
+
+:deep(.delete-dialog) {
+  background: #1e1e1e !important;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 12px;
+}
+
+:deep(.delete-dialog .v-card-title) {
+  color: #e9d5ff;
+}
+
+:deep(.delete-dialog .v-card-text) {
+  color: rgba(233, 213, 255, 0.7);
 }
 </style> 

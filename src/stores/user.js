@@ -146,6 +146,34 @@ export const useUserStore = defineStore('user', {
         localStorage.removeItem(TOKEN_STORAGE_KEY)
         this.loading = false
       }
+    },
+
+    async deleteAccount() {
+      this.loading = true
+      this.error = null
+      try {
+        const response = await fetch(`${API_BASE_URL}/user/me`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${this.token}`
+          }
+        })
+        await handleApiResponse(response)
+        
+        // Clear state and storage after successful deletion
+        this.user = null
+        this.token = null
+        localStorage.removeItem(USER_STORAGE_KEY)
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        
+        return true
+      } catch (err) {
+        console.error('Delete account error:', err)
+        this.error = err.message
+        throw err
+      } finally {
+        this.loading = false
+      }
     }
   }
 }) 

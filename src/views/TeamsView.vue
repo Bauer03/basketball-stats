@@ -92,6 +92,7 @@ const cleanupEventListeners = () => {
 }
 
 onMounted(() => {
+  // Only set the search type, initialization is handled by Teams component
   updateSearchType('teams')
   setupEventListeners()
 })
@@ -101,13 +102,17 @@ onUnmounted(() => {
 })
 
 const loadFavoriteTeams = async () => {
+  // Only proceed if we're not already loading
+  if (loading.value) {
+    console.log('Already loading favorite teams, skipping')
+    return
+  }
+  
   loading.value = true
   try {
     console.log('Fetching favorite teams...')
     const response = await api.getFavoriteTeams()
     console.log('Favorite teams API response:', response)
-    console.log('Response data type:', typeof response.data)
-    console.log('Response data:', response.data)
     
     let favoriteTeamIds
     if (response.data && Array.isArray(response.data.favoriteTeams)) {
@@ -121,18 +126,61 @@ const loadFavoriteTeams = async () => {
     
     console.log('Extracted favorite team IDs:', favoriteTeamIds)
     
-    const teamsPromises = favoriteTeamIds.map(id => {
-      console.log('Fetching details for team ID:', id)
-      return api.get(`/teams/${id}`)
+    // Fetch details for each favorite team
+    const teamsPromises = favoriteTeamIds.map(async (teamId) => {
+      try {
+        console.log(`Fetching details for team ID ${teamId}...`)
+        const response = await api.get(`/teams/${teamId}`)
+        console.log(`Raw team details response for ID ${teamId}:`, response)
+        
+        // Check the response structure
+        if (!response.data) {
+          console.error(`No data in response for team ${teamId}`)
+          return null
+        }
+
+        // The team data might be in response.data.team or directly in response.data
+        const teamData = response.data.team || response.data
+        console.log(`Extracted team data for ID ${teamId}:`, teamData)
+
+        if (!teamData || !teamData.id) {
+          console.error(`Invalid team data for ID ${teamId}:`, teamData)
+          return null
+        }
+
+        // Map to consistent team structure
+        const mappedTeam = {
+          id: teamData.id,
+          full_name: teamData.full_name || `${teamData.city} ${teamData.name}`,
+          name: teamData.name,
+          abbreviation: teamData.abbreviation,
+          city: teamData.city,
+          conference: teamData.conference,
+          division: teamData.division
+        }
+        
+        console.log(`Mapped team data for ID ${teamId}:`, mappedTeam)
+        return mappedTeam
+      } catch (error) {
+        console.error(`Failed to fetch details for team ${teamId}:`, error)
+        return null
+      }
     })
+    
     const teamsResponses = await Promise.all(teamsPromises)
-    console.log('Team details responses:', teamsResponses)
+    console.log('All team details responses:', teamsResponses)
     
-    const favoriteTeams = teamsResponses.map(response => {
-      return response.data.team.data
-    })
-    console.log('Final favorite teams data:', favoriteTeams)
+    // Filter out null responses and ensure all required fields are present
+    const favoriteTeams = teamsResponses
+      .filter(team => team !== null && team.id && team.full_name && team.conference)
     
+    console.log('Final processed favorite teams:', favoriteTeams)
+    
+    if (favoriteTeams.length === 0) {
+      console.warn('No valid favorite teams data after processing')
+    }
+    
+    // Update the teams component with the favorite teams
     teamsComponent.value?.updateTeams(favoriteTeams)
   } catch (error) {
     console.error('Failed to load favorite teams:', error)

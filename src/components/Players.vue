@@ -253,9 +253,11 @@
 <script setup>
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useFavoritesStore } from '@/stores/favoritesStore'
 import api from '@/api/axios'
 
 const router = useRouter()
+const favoritesStore = useFavoritesStore()
 const players = ref([])
 const selectedPlayer = ref(null)
 const playerStats = ref([])
@@ -269,7 +271,6 @@ const activeSeasonTab = ref(null)
 const CURRENT_SEASON = 2024
 const NBA_START_YEAR = 1946
 const seasonErrorMessage = ref('')
-const favoritePlayers = ref(new Set())
 const detailedPlayerStats = ref(null)
 const isInFavoritesView = ref(false)
 const lastFetchTime = ref(0)
@@ -358,7 +359,7 @@ defineExpose({
     // Set favorite status for all loaded players
     newPlayers.forEach(player => {
       if (player.id) {
-        favoritePlayers.value.add(player.id)
+        favoritesStore.addFavoritePlayer(player.id)
       }
     })
     
@@ -537,65 +538,83 @@ watch(showModal, (newValue) => {
   }
 })
 
-const isFavorite = (playerId) => favoritePlayers.value.has(playerId)
+const isFavorite = (playerId) => {
+  return favoritesStore.isPlayerFavorited(playerId)
+}
 
 const toggleFavorite = async (player) => {
   try {
-    if (isFavorite(player.id)) {
-      await api.unfavoritePlayer(player.id)
-      favoritePlayers.value.delete(player.id)
-      
-      // If we're in favorites view, remove the player from the list
-      if (isInFavoritesView.value) {
-        players.value = players.value.filter(p => p.id !== player.id)
-      }
-    } else {
-      await api.favoritePlayer(player.id)
-      favoritePlayers.value.add(player.id)
+    await favoritesStore.toggleFavoritePlayer(player.id)
+    
+    // If we're in favorites view and the player was unfavorited, remove them from the list
+    if (isInFavoritesView.value && !favoritesStore.isPlayerFavorited(player.id)) {
+      players.value = players.value.filter(p => p.id !== player.id)
     }
   } catch (err) {
     console.error('Failed to toggle favorite:', err)
-    // Revert the local state if the API call fails
-    if (isFavorite(player.id)) {
-      favoritePlayers.value.delete(player.id)
-    } else {
-      favoritePlayers.value.add(player.id)
-    }
   }
 }
 
 const loadFavoritePlayers = async () => {
   try {
-    const response = await api.getFavoritePlayers()
-    const favoritePlayersData = Array.isArray(response.data) ? response.data : []
-    favoritePlayers.value = new Set(favoritePlayersData.map(player => player.id))
-  } catch (err) {
-    console.error('Failed to load favorite players:', err)
+    isLoading.value = true
+    
+    // Get favorite player IDs from the store
+    const favoritePlayerIds = Array.from(favoritesStore.favoritePlayerIds)
+    console.log('Favorite player IDs:', favoritePlayerIds)
+    
+    if (!favoritePlayerIds || favoritePlayerIds.length === 0) {
+      players.value = []
+      return
+    }
+    
+    // Fetch details for each favorite player
+    const playerDetailsPromises = favoritePlayerIds.map(async (playerId) => {
+      try {
+        const response = await api.get(`/players/${playerId}`)
+        if (!response.data || !response.data.player) {
+          console.error(`Invalid player details response for ID ${playerId}:`, response.data)
+          return null
+        }
+        return response.data.player
+      } catch (error) {
+        console.error(`Failed to fetch details for player ${playerId}:`, error)
+        return null
+      }
+    })
+    
+    // Wait for all player details and filter out failed requests
+    const playerDetails = await Promise.all(playerDetailsPromises)
+    const validPlayers = playerDetails.filter(player => player !== null)
+    console.log('Valid favorite players loaded:', validPlayers)
+    
+    // Update the players array with valid players
+    players.value = validPlayers
+    
+    // Select first player if available (without opening modal)
+    if (validPlayers.length > 0) {
+      selectPlayer(validPlayers[0], false)
+    }
+  } catch (error) {
+    console.error('Error loading favorite players:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
-// Add event listener for stats-view-changed
-const handleStatsViewChanged = (event) => {
-  const view = event.detail
-  if (view === 'players') {
-    // Clear any existing search results
-    players.value = []
-    isInFavoritesView.value = false
-  }
-}
-
-onMounted(() => {
+// Add favorites loading to onMounted
+onMounted(async () => {
   console.log('Players component mounted')
-  loadFavoritePlayers()
-  fetchPlayers()
+  await favoritesStore.loadFavorites()
+  await loadFavoritePlayers()
+  await fetchPlayers()
   
-  // Add global event listener for search grid updates
+  // Add global event listeners
   window.addEventListener('search-grid-update', (event) => {
     console.log('Received search-grid-update event in Players component:', event.detail)
     handleSearchGridUpdate(event.detail)
   })
 
-  // Add global event listener for search selection
   window.addEventListener('search-selection', (event) => {
     console.log('Received search-selection event in Players component:', event.detail)
     handleSearchSelection(event.detail)
@@ -610,6 +629,16 @@ onUnmounted(() => {
   window.removeEventListener('search-selection', (event) => handleSearchSelection(event.detail))
   window.removeEventListener('stats-view-changed', handleStatsViewChanged)
 })
+
+// Add event listener for stats-view-changed
+const handleStatsViewChanged = (event) => {
+  const view = event.detail
+  if (view === 'players') {
+    // Clear any existing search results
+    players.value = []
+    isInFavoritesView.value = false
+  }
+}
 </script>
 
 <style scoped>

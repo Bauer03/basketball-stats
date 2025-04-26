@@ -37,50 +37,51 @@
           {{ searchType }}
         </v-btn>
       </div>
-
-      <v-menu
-        v-model="showResults"
-        :close-on-content-click="false"
-        location="bottom"
-        offset="10"
-        transition="scale-transition"
-        :width="searchInput?.$el?.offsetWidth"
-        :z-index="9999"
-        :close-on-click="false"
-        :close-delay="0"
-        :open-delay="0"
-        :close-on-back="false"
-        persistent
-      >
-        <template v-slot:activator="{ props }">
-          <div v-bind="props" class="search-activator" style="width: 100%; height: 0;"></div>
-        </template>
-
-        <v-card class="search-results-card" style="width: 100%;">
-          <SearchResults
-            :type="searchType"
-            :is-loading="isSearching"
-            :is-visible="true"
-            :teams="teamsData"
-            :players="searchResults?.players || []"
-            :games="searchResults?.games || []"
-            @select="handleSelect"
-            @conference-change="handleConferenceChange"
-            @date-change="handleDateChange"
-            @team-change="handleTeamChange"
-            @player-team-change="handlePlayerTeamChange"
-            @position-change="handlePositionChange"
-            @refocus="handleRefocus"
-          />
-        </v-card>
-      </v-menu>
     </div>
   </div>
+
+  <Teleport to="body">
+    <Transition name="fade">
+      <div v-if="showResults" class="search-results-overlay">
+        <div 
+          class="search-results-backdrop" 
+          @click="showResults = false"
+          @mousedown.prevent
+        ></div>
+        <div 
+          class="search-results-container"
+          :style="{
+            top: searchInput ? `${searchInput.$el.getBoundingClientRect().bottom + 8}px` : '0px',
+            left: searchInput ? `${searchInput.$el.getBoundingClientRect().left}px` : '0px',
+            width: searchInput ? `${searchInput.$el.offsetWidth}px` : 'auto',
+            maxHeight: 'calc(100vh - 96px)',
+          }"
+        >
+          <v-card class="search-results-card">
+            <SearchResults
+              :type="searchType"
+              :is-loading="isSearching"
+              :is-visible="showResults"
+              :teams="teams"
+              :players="players"
+              :games="games"
+              @select="handleSelect"
+              @conference-change="handleConferenceChange"
+              @date-change="handleDateChange"
+              @team-change="handleTeamChange"
+              @player-team-change="handlePlayerTeamChange"
+              @position-change="handlePositionChange"
+              @refocus="handleRefocus"
+            />
+          </v-card>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
-import { useSearch } from '@/composables/useSearch'
 import SearchResults from './SearchResults.vue'
 import api from '@/api/axios'
 import { useRouter } from 'vue-router'
@@ -101,34 +102,15 @@ const searchQuery = ref('')
 const displayQuery = ref('')
 const searchInput = ref(null)
 const showResults = ref(props.showByDefault)
-
-const { searchResults, isLoading: isSearching, debouncedSearch } = useSearch()
+const isSearching = ref(false)
 const router = useRouter()
 
-const searchType = computed(() => searchTypes[currentTypeIndex.value])
-const hasResults = computed(() => {
-  if (!searchResults) return false
-  
-  switch (searchType.value) {
-    case 'Teams':
-      return searchResults.teams?.length > 0
-    case 'Players':
-      return searchResults.players?.length > 0
-    case 'Games':
-      return searchResults.games?.length > 0
-    default:
-      return false
-  }
-})
+// Add state for search results
+const teams = ref([])
+const players = ref([])
+const games = ref([])
 
-const teamsData = computed(() => {
-  const results = searchResults.value
-  console.log('Search results in SearchBar:', results)
-  const teamsProxy = results?.teams
-  const teams = teamsProxy ? [...teamsProxy] : []
-  console.log('Teams data being passed to SearchResults:', teams)
-  return teams
-})
+const searchType = computed(() => searchTypes[currentTypeIndex.value])
 
 const placeholderText = computed(() => {
   switch (searchType.value) {
@@ -164,13 +146,10 @@ const cycleSearchType = () => {
       router.push('/games')
       break
   }
-  
-  if (displayQuery.value) {
-    debouncedSearch(displayQuery.value, searchType.value)
-  }
 }
 
 const handleInput = () => {
+  console.log('Input handled, showing results')
   showResults.value = true
 }
 
@@ -182,6 +161,7 @@ const handleEnter = async (e) => {
   if (searchType.value === 'Games') {
     console.log('Games search - triggering search on Enter')
     try {
+      isSearching.value = true
       // Include all current filters in the search
       const filters = {
         conference: currentConference.value,
@@ -191,14 +171,9 @@ const handleEnter = async (e) => {
         position: currentPosition.value
       }
       
-      // Use the filtered results from useSearch with all current filters
-      await debouncedSearch(displayQuery.value || '', searchType.value, 0, filters.conference, filters)
-      
-      // Wait for the search results to be updated
-      await nextTick()
-      
-      // Get the results based on search type
-      const results = searchResults.value?.games || []
+      // Make API call directly
+      const response = await api.get('/games', { params: filters })
+      const results = response.data.data || []
       
       console.log(`Games search results:`, results)
       
@@ -206,10 +181,8 @@ const handleEnter = async (e) => {
         type: searchType.value, 
         results,
         query: displayQuery.value || '',
-        shouldOpenModal: false // Don't open modal when pressing enter
+        shouldOpenModal: false
       }
-      
-      console.log('Emitting search-grid-update event with:', updateData)
       
       // First dispatch the event globally
       window.dispatchEvent(new CustomEvent('search-grid-update', { 
@@ -221,27 +194,24 @@ const handleEnter = async (e) => {
       if (router.currentRoute.value.path !== `/${route}`) {
         await router.push(`/${route}`)
       }
-
-      // After navigation, dispatch the event again to ensure the new view receives it
-      await nextTick()
-      window.dispatchEvent(new CustomEvent('search-grid-update', { 
-        detail: updateData
-      }))
       
       return
     } catch (err) {
       console.error('Failed to fetch games search results:', err)
       return
+    } finally {
+      isSearching.value = false
     }
   }
   
-  // For other search types, only proceed if there's a query and not already searching
+  // For other search types, only proceed if there's a query
   if (!displayQuery.value.trim() || isSearching.value) {
     console.log('Search query empty or already searching')
     return
   }
   
   try {
+    isSearching.value = true
     console.log('Making API call for search:', displayQuery.value)
     
     // Include all current filters in the search
@@ -253,14 +223,22 @@ const handleEnter = async (e) => {
       position: currentPosition.value
     }
     
-    // Use the filtered results from useSearch with all current filters
-    await debouncedSearch(displayQuery.value, searchType.value, 0, filters.conference, filters)
+    // Make API call based on search type
+    let response
+    let results = []
     
-    // Wait for the search results to be updated
-    await nextTick()
-    
-    // Get the results based on search type
-    const results = searchResults.value?.[searchType.value.toLowerCase()] || []
+    if (searchType.value === 'Teams') {
+      response = await api.get('/teams', { params: { 'team-search': displayQuery.value } })
+      // Filter teams client-side as well to ensure we get the best match
+      results = response.data.data.filter(team => 
+        team.full_name.toLowerCase().includes(displayQuery.value.toLowerCase()) ||
+        team.name.toLowerCase().includes(displayQuery.value.toLowerCase()) ||
+        team.abbreviation.toLowerCase().includes(displayQuery.value.toLowerCase())
+      )
+    } else if (searchType.value === 'Players') {
+      response = await api.get('/players', { params: { 'name-search': displayQuery.value, ...filters } })
+      results = response.data.data || []
+    }
     
     console.log(`${searchType.value} search results:`, results)
     
@@ -268,10 +246,8 @@ const handleEnter = async (e) => {
       type: searchType.value, 
       results,
       query: displayQuery.value,
-      shouldOpenModal: false // Don't open modal when pressing enter
+      shouldOpenModal: false
     }
-    
-    console.log('Emitting search-grid-update event with:', updateData)
     
     // First dispatch the event globally
     window.dispatchEvent(new CustomEvent('search-grid-update', { 
@@ -283,14 +259,10 @@ const handleEnter = async (e) => {
     if (router.currentRoute.value.path !== `/${route}`) {
       await router.push(`/${route}`)
     }
-
-    // After navigation, dispatch the event again to ensure the new view receives it
-    await nextTick()
-    window.dispatchEvent(new CustomEvent('search-grid-update', { 
-      detail: updateData
-    }))
   } catch (err) {
     console.error('Failed to fetch search results:', err)
+  } finally {
+    isSearching.value = false
   }
 }
 
@@ -300,21 +272,21 @@ const handleSelect = (item) => {
     detail: { 
       type: searchType.value,
       item,
-      shouldOpenModal: true // Modal should open when clicking a result
+      shouldOpenModal: true
     }
   }))
 }
 
 const handleFocus = () => {
+  console.log('Search input focused')
   if (displayQuery.value || props.showByDefault) {
+    console.log('Showing results due to focus')
     showResults.value = true
-    if (displayQuery.value) {
-      debouncedSearch(displayQuery.value, searchType.value)
-    }
   }
 }
 
 const handleBlur = (e) => {
+  console.log('Search input blur event')
   // Only hide results if clicking outside both the input and results
   setTimeout(() => {
     const activeElement = document.activeElement
@@ -323,39 +295,39 @@ const handleBlur = (e) => {
     const isClickingSearchContainer = searchContainer?.contains(clickedElement)
     const isClickingResults = activeElement?.closest('.search-results-card') || clickedElement?.closest('.search-results-card')
     
+    console.log('Blur check:', {
+      isClickingSearchContainer,
+      isClickingResults
+    })
+    
     if (!isClickingResults && !isClickingSearchContainer) {
+      console.log('Hiding results due to blur')
       showResults.value = false
     }
   }, 0)
 }
 
 const handleConferenceChange = (conference) => {
-  // Store the conference filter without triggering a search
   currentConference.value = conference
 }
 
 const handleDateChange = ({ startDate, endDate }) => {
-  // Store the date filters without triggering a search
   currentDateRange.value = { startDate, endDate }
 }
 
 const handleTeamChange = (teams) => {
-  // Store the team filters without triggering a search
   currentTeams.value = teams
 }
 
 const handlePlayerTeamChange = (team) => {
-  // Store the player team filter without triggering a search
   currentPlayerTeam.value = team
 }
 
 const handlePositionChange = (position) => {
-  // Store the position filter without triggering a search
   currentPosition.value = position
 }
 
 const handleRefocus = () => {
-  // Focus the input but keep the results visible
   searchInput.value?.focus()
   showResults.value = true
 }
@@ -367,43 +339,21 @@ const handleEscape = () => {
 
 const handleKeyDown = (e) => {
   if (e.key === 'Enter') {
-    if (searchType.value === 'Games' && searchResults.value?.games?.length > 0) {
-      emit('search-select', {
-        type: 'Games',
-        item: searchResults.value.games
-      });
-    } else if (searchType.value === 'Players' && searchResults.value?.players?.length > 0) {
-      emit('search-select', {
-        type: 'Players',
-        item: searchResults.value.players[0]
-      });
-    } else if (searchType.value === 'Teams' && searchResults.value?.teams?.length > 0) {
-      emit('search-select', {
-        type: 'Teams',
-        item: searchResults.value.teams[0]
-      });
-    }
+    handleEnter(e)
   }
 }
 
 const handleKeyUp = (e) => {
-  // Handle arrow up
   if (e.key === 'ArrowUp' && showResults.value) {
     e.preventDefault()
     emit('move-selection', 'up')
   }
 }
 
-// debug, watching game data
-watch(() => searchResults.value?.games, (newGames) => {
-  console.log('Games data in SearchBar before passing to SearchResults:', newGames)
-}, { deep: true })
-
 async function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Create a ref to store the event handler function
 const handleKeyPress = (event) => {
   if (event.key === '/' && !event.target.matches('input, textarea')) {
     event.preventDefault()
@@ -415,57 +365,45 @@ const handleKeyPress = (event) => {
   }
 }
 
-// Register event listeners in onMounted
 onMounted(async () => {
-  // wait 150ms and then try focusing
-  await wait(150);
+  await wait(150)
   const input = searchInput.value?.$el?.querySelector('input')
   if (input) {
     input.focus()
     showResults.value = true
   }
 
-  // Add event listeners
   window.addEventListener('keydown', handleKeyPress)
-
-  // Listen for view changes
-  window.addEventListener('stats-view-changed', (event) => {
-    const view = event.detail
-    debouncedViewChange(view)
-  })
-
   window.addEventListener('search-enter-pressed', handleEnter)
 })
 
-// Clean up event listeners in onUnmounted
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPress)
   window.removeEventListener('search-enter-pressed', handleEnter)
 })
 
-// Expose search functionality to parent components
 defineExpose({
   searchQuery,
   searchType
 })
 
-// Add debounced view change handler
 const debouncedViewChange = debounce((view) => {
   const index = searchTypes.findIndex(type => type.toLowerCase() === view)
   if (index !== -1) {
     currentTypeIndex.value = index
-    if (displayQuery.value) {
-      debouncedSearch(displayQuery.value, searchType.value)
-    }
   }
 }, 500)
 
-// Add refs for storing filter values
 const currentConference = ref(null)
 const currentDateRange = ref(null)
 const currentTeams = ref([])
 const currentPlayerTeam = ref(null)
 const currentPosition = ref(null)
+
+// Add watcher for showResults
+watch(showResults, (newVal) => {
+  console.log('showResults changed:', newVal)
+})
 </script>
 
 <style scoped>
@@ -474,13 +412,13 @@ const currentPosition = ref(null)
   max-width: 900px;
   margin: 0 auto;
   position: relative;
-  z-index: 9999;
+  z-index: 100;
   width: 100%;
 }
 
 .search-wrapper {
   position: relative;
-  z-index: 9999;
+  z-index: 100;
   width: 100%;
 }
 
@@ -489,7 +427,7 @@ const currentPosition = ref(null)
   position: relative;
   display: flex;
   align-items: center;
-  z-index: 9999;
+  z-index: 100;
 }
 
 .search-input {
@@ -578,16 +516,62 @@ const currentPosition = ref(null)
 /* Transition styles */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
 }
 
-:deep(.v-menu__content) {
-  z-index: 9999 !important;
+.search-results-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+}
+
+.search-results-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+.search-results-container {
+  pointer-events: auto;
+  background: var(--background-dark, #1a1a1a);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  position: absolute !important;
+  min-width: 320px;
+}
+
+.search-results-card {
+  background: var(--background-dark, #1a1a1a) !important;
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  width: 100%;
+  overflow: visible !important;
+}
+
+:deep(.v-card) {
+  background: var(--background-dark, #1a1a1a) !important;
+  color: var(--color-text-primary) !important;
+}
+
+:deep(.v-overlay__content) {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 96px);
 }
 </style> 
