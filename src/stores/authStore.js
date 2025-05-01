@@ -1,96 +1,118 @@
 import { defineStore } from 'pinia'
-import api from '@/api/axios'
-import router from '@/router'
+
+const API_BASE_URL = 'https://csci-430-server-dubbabadgmf8hpfk.eastus2-01.azurewebsites.net'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
     user: null,
-    token: localStorage.getItem('token') || null,
-    loading: false,
-    error: null
+    token: null
   }),
 
   actions: {
-    setAuth(data) {
-      this.user = data.user
-      this.token = data.token
-      localStorage.setItem('token', data.token)
-      api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
-    },
-
-    clearAuth() {
-      this.user = null
-      this.token = null
-      localStorage.removeItem('token')
-      delete api.defaults.headers.common['Authorization']
-    },
-
-    async register(userData) {
-      this.loading = true
+    async login(email, password) {
+      this.isLoading = true
       this.error = null
+      
       try {
-        const response = await api.post('/user', userData)
-        this.setAuth(response.data)
-        return true
+        const response = await fetch(`${API_BASE_URL}/user/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.message || 'Login failed')
+        }
+
+        const data = await response.json()
+        this.token = data.token
+        this.user = data.user
+        this.isAuthenticated = true
+        
+        localStorage.setItem('token', this.token)
+        localStorage.setItem('user', JSON.stringify(this.user))
+        
+        return data
       } catch (error) {
-        this.error = error.response?.data?.message || 'Failed to register'
+        this.error = error.message
         throw error
       } finally {
-        this.loading = false
+        this.isLoading = false
       }
     },
 
-    async login(credentials) {
-      this.loading = true
+    async register(username, email, password) {
+      this.isLoading = true
       this.error = null
+      
       try {
-        const response = await api.post('/user/login', credentials)
-        this.setAuth(response.data)
-        return true
+        const response = await fetch(`${API_BASE_URL}/user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, email, password })
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.message || 'Registration failed')
+        }
+
+        const data = await response.json()
+        
+        await this.login(email, password)
+        
+        return data
       } catch (error) {
-        this.error = error.response?.data?.message || 'Failed to login'
+        this.error = error.message
         throw error
       } finally {
-        this.loading = false
+        this.isLoading = false
       }
     },
 
-    async deleteAccount() {
-      this.loading = true
+    async logout() {
+      this.isLoading = true
       this.error = null
+      
       try {
-        await api.delete('/user/me')
-        this.clearAuth()
-        router.push('/login')
+        if (this.token) {
+          await fetch(`${API_BASE_URL}/user/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.token}`
+            }
+          })
+        }
       } catch (error) {
-        this.error = error.response?.data?.message || 'Failed to delete account'
-        throw error
+        console.error('Logout error:', error)
       } finally {
-        this.loading = false
+        // Clear state and storage regardless of server response
+        this.token = null
+        this.user = null
+        this.isAuthenticated = false
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        this.isLoading = false
       }
     },
 
-    logout() {
-      this.clearAuth()
-      router.push('/login')
-    },
-
-    clearError() {
-      this.error = null
-    },
-
-    initializeAuth() {
+    initAuth() {
       const token = localStorage.getItem('token')
-      if (token) {
+      const user = localStorage.getItem('user')
+      
+      if (token && user) {
         this.token = token
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        this.user = JSON.parse(user)
+        this.isAuthenticated = true
       }
     }
-  },
-
-  getters: {
-    isAuthenticated: (state) => !!state.token,
-    currentUser: (state) => state.user,
-    hasError: (state) => !!state.error
   }
 }) 

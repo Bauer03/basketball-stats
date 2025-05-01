@@ -37,6 +37,6 @@ initializeTheme()
 
 // Initialize auth state
 const authStore = useAuthStore()
-authStore.initializeAuth()
+authStore.initAuth()
 
 app.mount('#app') 

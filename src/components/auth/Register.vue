@@ -5,6 +5,21 @@
       <v-form @submit.prevent="handleRegister" ref="form">
         <div class="form-group">
           <v-text-field
+            v-model="username"
+            label="Username"
+            type="text"
+            :rules="[v => !!v || 'Username is required']"
+            required
+            :disabled="isLoading"
+            variant="outlined"
+            color="#9333ea"
+            bg-color="rgba(147, 51, 234, 0.1)"
+            class="purple-input"
+          ></v-text-field>
+        </div>
+
+        <div class="form-group">
+          <v-text-field
             v-model="email"
             label="Email"
             type="email"
@@ -91,6 +106,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const form = ref(null)
 
+const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -104,7 +120,7 @@ const handleRegister = async () => {
   error.value = ''
 
   try {
-    await authStore.register(email.value, password.value)
+    await authStore.register(username.value, email.value, password.value)
     router.push('/teams')
   } catch (err) {
     error.value = err.message || 'Registration failed'
