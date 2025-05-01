@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { useUserStore } from './user'
+import { useAuthStore } from './authStore'
 import { handleApiResponse } from '../utils/api-errors'
 
 const API_BASE_URL = 'https://csci-430-server-dubbabadgmf8hpfk.eastus2-01.azurewebsites.net'
@@ -33,7 +33,7 @@ export const useGamesStore = defineStore('games', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const queryParams = new URLSearchParams({
           start_date: startDate,
           end_date: endDate,
@@ -66,7 +66,7 @@ export const useGamesStore = defineStore('games', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 
@@ -115,7 +115,7 @@ export const useGamesStore = defineStore('games', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const url = `${API_BASE_URL}/games/${gameId}`
         console.log('🎮 Fetching game details:', {
           gameId,
@@ -125,7 +125,7 @@ export const useGamesStore = defineStore('games', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 
@@ -160,13 +160,13 @@ export const useGamesStore = defineStore('games', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const url = `${API_BASE_URL}/games/${gameId}/stats`
         console.log('Fetching game stats from:', url)
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 
@@ -195,7 +195,7 @@ export const useGamesStore = defineStore('games', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const queryParams = new URLSearchParams({
           start_date: startDate,
           end_date: endDate,
@@ -211,7 +211,7 @@ export const useGamesStore = defineStore('games', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 

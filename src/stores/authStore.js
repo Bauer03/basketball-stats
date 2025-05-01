@@ -67,6 +67,7 @@ export const useAuthStore = defineStore('auth', {
 
         const data = await response.json()
         
+        // After successful registration, login automatically
         await this.login(email, password)
         
         return data
@@ -104,6 +105,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    // Initialize auth state from localStorage
     initAuth() {
       const token = localStorage.getItem('token')
       const user = localStorage.getItem('user')

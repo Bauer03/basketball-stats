@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { useUserStore } from './user'
+import { useAuthStore } from './authStore'
 import { handleApiResponse } from '../utils/api-errors'
 
 const API_BASE_URL = 'https://csci-430-server-dubbabadgmf8hpfk.eastus2-01.azurewebsites.net'
@@ -28,7 +28,7 @@ export const useTeamsStore = defineStore('teams', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const queryParams = new URLSearchParams({
           per_page: this.perPage
         })
@@ -51,7 +51,7 @@ export const useTeamsStore = defineStore('teams', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 
@@ -82,7 +82,7 @@ export const useTeamsStore = defineStore('teams', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const queryParams = new URLSearchParams()
         if (season) {
           queryParams.append('season', season)
@@ -93,7 +93,7 @@ export const useTeamsStore = defineStore('teams', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 
@@ -125,7 +125,7 @@ export const useTeamsStore = defineStore('teams', {
       this.error = null
       
       try {
-        const userStore = useUserStore()
+        const authStore = useAuthStore()
         const queryParams = new URLSearchParams()
         if (season) {
           queryParams.append('season', season)
@@ -136,7 +136,7 @@ export const useTeamsStore = defineStore('teams', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         })
 
@@ -170,6 +170,28 @@ export const useTeamsStore = defineStore('teams', {
       this.cursor = null
       this.nextCursor = null
       this.teams = []
+    },
+
+    async fetchTeamGames(teamId, startDate, endDate) {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const authStore = useAuthStore();
+        const response = await fetch(`${API_BASE_URL}/teams/${teamId}/games?start_date=${startDate}&end_date=${endDate}`, {
+          headers: {
+            'Authorization': `Bearer ${authStore.token}`
+          }
+        });
+
+        const data = await handleApiResponse(response);
+        return data;
+      } catch (err) {
+        this.error = err.message || 'Failed to fetch team games';
+        throw err;
+      } finally {
+        this.loading = false;
+      }
     }
   }
 }) 

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { useUserStore } from './user';
+import { useAuthStore } from './authStore';
 import { handleApiResponse } from '../utils/api-errors';
 
 const API_BASE_URL = 'https://csci-430-server-dubbabadgmf8hpfk.eastus2-01.azurewebsites.net';
@@ -38,7 +38,7 @@ export const usePlayersStore = defineStore('players', {
       this.error = null;
 
       try {
-        const userStore = useUserStore();
+        const authStore = useAuthStore();
         const queryParams = new URLSearchParams({
           per_page: this.perPage // Use state's perPage setting
         });
@@ -59,7 +59,7 @@ export const usePlayersStore = defineStore('players', {
         const response = await fetch(url, {
           headers: {
             // Send auth token even if docs say not required, API might expect it
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         });
 
@@ -107,7 +107,7 @@ export const usePlayersStore = defineStore('players', {
       }
 
       try {
-        const userStore = useUserStore();
+        const authStore = useAuthStore();
         const queryParams = new URLSearchParams();
         // Add season parameter if provided, to filter stats
         if (season) {
@@ -120,7 +120,7 @@ export const usePlayersStore = defineStore('players', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         });
 
@@ -167,7 +167,7 @@ export const usePlayersStore = defineStore('players', {
       }
 
       try {
-        const userStore = useUserStore();
+        const authStore = useAuthStore();
         const queryParams = new URLSearchParams({
           per_page: this.perPage
         });
@@ -181,7 +181,7 @@ export const usePlayersStore = defineStore('players', {
 
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${userStore.token}`
+            'Authorization': `Bearer ${authStore.token}`
           }
         });
 
